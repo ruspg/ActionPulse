@@ -1,4 +1,4 @@
-# Валидация документации SummaryLLM
+# Валидация документации ActionPulse
 
 ## Цель
 
@@ -146,7 +146,7 @@ done
 1. **Сброс окружения**
    ```bash
    # Удалите все следы предыдущих установок
-   rm -rf ~/SummaryLLM
+   rm -rf ~/ActionPulse
    rm -rf ~/.digest-*
    rm -f ~/.env
    
@@ -211,7 +211,7 @@ done
 
 ```bash
 # Скрипт для проверки всех Markdown ссылок
-cd /Users/ruslan/msc_1/git/SummaryLLM
+cd /Users/ruslan/msc_1/git/ActionPulse
 
 find docs -name "*.md" -exec grep -H "\[.*\](.*.md)" {} \; | while IFS=: read -r file link; do
     # Extract path from [text](path.md)

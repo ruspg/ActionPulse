@@ -59,7 +59,7 @@ digest-core/scripts/py.sh -m digest_core.cli run
 The easiest way to get started is using the interactive setup script from the project root:
 
 ```bash
-# From SummaryLLM root directory
+# From ActionPulse root directory
 ./digest-core/scripts/setup.sh
 
 # Or using make

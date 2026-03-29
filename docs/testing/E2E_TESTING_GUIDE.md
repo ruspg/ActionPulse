@@ -1,8 +1,8 @@
-# End-to-End Testing Guide для SummaryLLM
+# End-to-End Testing Guide для ActionPulse
 
 ## Введение
 
-Этот гайд предназначен для **тестировщиков**, которые устанавливают и тестируют SummaryLLM на отдельном компьютере (в том числе корпоративном ноутбуке) для проверки работоспособности и возврата результатов разработчику.
+Этот гайд предназначен для **тестировщиков**, которые устанавливают и тестируют ActionPulse на отдельном компьютере (в том числе корпоративном ноутбуке) для проверки работоспособности и возврата результатов разработчику.
 
 **Целевая аудитория:**
 - QA-инженеры
@@ -10,7 +10,7 @@
 - Пользователи, выполняющие первичную установку
 
 **Что вы получите в результате:**
-- Полностью настроенную систему SummaryLLM
+- Полностью настроенную систему ActionPulse
 - Результаты тестирования (логи, метрики, дайджесты)
 - Архив диагностики для отправки разработчику
 
@@ -52,7 +52,7 @@
 
 - ❌ **Нет доступа к `/tmp/`** → Используем `$HOME/.digest-temp`
 - ❌ **Нет доступа к `/etc/ssl/`** → Размещаем сертификаты в `$HOME/.ssl`
-- ❌ **Нет доступа к `/opt/`** → Устанавливаем в `$HOME/SummaryLLM`
+- ❌ **Нет доступа к `/opt/`** → Устанавливаем в `$HOME/ActionPulse`
 - ⚠️ **Корпоративный прокси** → Может потребоваться настройка
 - ⚠️ **Самоподписанные сертификаты** → Настраиваем trust chain
 
@@ -150,11 +150,11 @@ curl -I https://github.com
 
 ```bash
 # Полная установка с интерактивной настройкой
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install_interactive.sh | bash
 
 # Или если репозиторий приватный/локальный, склонируйте вручную:
-git clone https://github.com/d1249/SummaryLLM.git
-cd SummaryLLM
+git clone https://github.com/ruspg/ActionPulse.git
+cd ActionPulse
 ./digest-core/scripts/install_interactive.sh
 ```
 
@@ -170,8 +170,8 @@ cd SummaryLLM
 
 ```bash
 # 1. Клонирование репозитория
-git clone https://github.com/d1249/SummaryLLM.git
-cd SummaryLLM
+git clone https://github.com/ruspg/ActionPulse.git
+cd ActionPulse
 
 # 2. Переход в директорию digest-core
 cd digest-core
@@ -211,7 +211,7 @@ python3.11 -m digest_core.cli --help
 
 ```bash
 # Убедитесь, что вы в директории digest-core
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 
 # Скопируйте пример конфигурации
 cp configs/config.example.yaml configs/config.yaml
@@ -222,7 +222,7 @@ cp configs/config.example.yaml configs/config.yaml
 Создайте файл `.env` в корне проекта:
 
 ```bash
-cd ~/SummaryLLM
+cd ~/ActionPulse
 
 cat > .env << 'EOF'
 # EWS Configuration
@@ -255,7 +255,7 @@ source .env
 Запустите скрипт диагностики:
 
 ```bash
-cd ~/SummaryLLM
+cd ~/ActionPulse
 ./digest-core/scripts/doctor.sh
 ```
 
@@ -279,7 +279,7 @@ cd ~/SummaryLLM
 Dry-run режим проверяет подключение к EWS и нормализацию данных **без вызовов LLM**:
 
 ```bash
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 source ../.env
 source .venv/bin/activate
 
@@ -332,7 +332,7 @@ tail -50 "$HOME/.digest-logs/run-*.log"
 Теперь запустим полный цикл с LLM для генерации дайджеста:
 
 ```bash
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 
 # Автоматический тестовый запуск с диагностикой
 ./digest-core/scripts/test_run.sh
@@ -390,7 +390,7 @@ curl http://localhost:9109/healthz 2>/dev/null
 Скрипт `test_run.sh` автоматически собирает диагностику. Но вы можете запустить сбор вручную:
 
 ```bash
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 ./digest-core/scripts/collect_diagnostics.sh
 ```
 
@@ -457,14 +457,14 @@ echo "Архив для отправки: $DIAG_FILE"
 
 **Тема письма:**
 ```
-SummaryLLM Test Results - 2024-10-13
+ActionPulse Test Results - 2024-10-13
 ```
 
 **Шаблон письма:**
 ```
 Здравствуйте!
 
-Провел end-to-end тестирование SummaryLLM на [название системы, например: корпоративный ноутбук macOS].
+Провел end-to-end тестирование ActionPulse на [название системы, например: корпоративный ноутбук macOS].
 
 === РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ ===
 
@@ -512,7 +512,7 @@ SummaryLLM Test Results - 2024-10-13
 cp "$DIAG_FILE" /path/to/shared/folder/
 
 # Или на сетевой диск
-cp "$DIAG_FILE" /Volumes/SharedDrive/SummaryLLM-Testing/
+cp "$DIAG_FILE" /Volumes/SharedDrive/ActionPulse-Testing/
 ```
 
 #### Способ 3: USB-носитель
@@ -553,7 +553,7 @@ mkdir -p "$HOME/.ssl"
 cp /path/to/corp-ca.crt "$HOME/.ssl/corp-ca.pem"
 
 # 3. Обновите config.yaml
-nano ~/SummaryLLM/digest-core/configs/config.yaml
+nano ~/ActionPulse/digest-core/configs/config.yaml
 
 # Добавьте/измените:
 ews:
@@ -585,7 +585,7 @@ mkdir -p "$OUT_DIR" "$STATE_DIR" "$TMPDIR"
 chmod 755 "$OUT_DIR" "$STATE_DIR" "$TMPDIR"
 
 # Запустите снова
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 ./digest-core/scripts/test_run.sh
 ```
 
@@ -647,7 +647,7 @@ ews:
 **Решение:**
 ```bash
 # 1. Проверьте временное окно в config.yaml
-cat ~/SummaryLLM/digest-core/configs/config.yaml | grep -A 5 "time:"
+cat ~/ActionPulse/digest-core/configs/config.yaml | grep -A 5 "time:"
 
 # 2. Попробуйте увеличить lookback_hours:
 # В config.yaml:
@@ -669,7 +669,7 @@ ews:
 **Решение:**
 ```bash
 # Исключите большие файлы при сборе
-cd ~/SummaryLLM/digest-core
+cd ~/ActionPulse/digest-core
 ./digest-core/scripts/collect_diagnostics.sh --exclude-large
 
 # Или сожмите сильнее
@@ -718,7 +718,7 @@ A: Да, через WSL (Windows Subsystem for Linux). Установите WSL,
 
 ---
 
-**Спасибо за тестирование SummaryLLM!** 🎉
+**Спасибо за тестирование ActionPulse!** 🎉
 
 Если возникли вопросы или проблемы, не описанные в этом гайде, пожалуйста, включите их в отчет о тестировании.
 

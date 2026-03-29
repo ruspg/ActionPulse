@@ -4,7 +4,7 @@
 
 ---
 
-You are working on **SummaryLLM** — a daily corporate email digest tool that extracts actionable items from Exchange emails using an LLM (qwen3.5-397b) and delivers the digest to Mattermost DM.
+You are working on **ActionPulse** — a daily corporate email digest tool that extracts actionable items from Exchange emails using an LLM (qwen3.5-397b) and delivers the digest to Mattermost DM.
 
 ## Before you start
 

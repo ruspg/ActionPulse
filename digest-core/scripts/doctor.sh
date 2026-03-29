@@ -1,5 +1,5 @@
 #!/bin/bash
-# SummaryLLM Doctor - диагностика окружения
+# ActionPulse Doctor - диагностика окружения
 set -euo pipefail
 
 # Color codes
@@ -21,7 +21,7 @@ DIGEST_CORE_DIR="$PROJECT_ROOT/digest-core"
 
 echo ""
 echo "======================================"
-echo "  SummaryLLM Environment Doctor"
+echo "  ActionPulse Environment Doctor"
 echo "======================================"
 echo ""
 

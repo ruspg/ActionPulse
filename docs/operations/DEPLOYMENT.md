@@ -1,6 +1,6 @@
-# SummaryLLM Deployment Guide
+# ActionPulse Deployment Guide
 
-Руководство по развертыванию SummaryLLM в различных средах.
+Руководство по развертыванию ActionPulse в различных средах.
 
 ## Dedicated Machine Setup
 

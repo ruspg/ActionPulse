@@ -2,14 +2,14 @@
 
 ## Email шаблон
 
-**Тема:** `SummaryLLM Test Results - 2024-10-13 - SUCCESS`
+**Тема:** `ActionPulse Test Results - 2024-10-13 - SUCCESS`
 
 **Тело письма:**
 
 ```
 Здравствуйте!
 
-Провел end-to-end тестирование SummaryLLM на корпоративном ноутбуке MacBook Pro.
+Провел end-to-end тестирование ActionPulse на корпоративном ноутбуке MacBook Pro.
 
 === РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ ===
 
@@ -100,7 +100,7 @@
 
 ```
 ======================================
-  SummaryLLM Environment Doctor
+  ActionPulse Environment Doctor
 ======================================
 
 Проверка Python...

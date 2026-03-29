@@ -1,5 +1,5 @@
 #!/bin/bash
-# Comprehensive diagnostics collection script for SummaryLLM
+# Comprehensive diagnostics collection script for ActionPulse
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -10,7 +10,7 @@ TIMESTAMP=$(date +"%Y-%m-%d-%H-%M-%S")
 ARCHIVE_NAME="diagnostics-${TIMESTAMP}"
 TEMP_DIR="${HOME}/.digest-temp/${ARCHIVE_NAME}"
 
-echo "Collecting diagnostics for SummaryLLM..."
+echo "Collecting diagnostics for ActionPulse..."
 echo "Archive name: ${ARCHIVE_NAME}.tar.gz"
 
 # Create temporary directory structure
@@ -148,7 +148,7 @@ echo "Running environment diagnostics..."
 # 8. Create summary
 echo "Creating summary..."
 {
-    echo "SummaryLLM Diagnostics Report"
+    echo "ActionPulse Diagnostics Report"
     echo "============================="
     echo "Generated: $(date)"
     echo "Archive: ${ARCHIVE_NAME}.tar.gz"
@@ -210,7 +210,7 @@ echo "Size: $ARCHIVE_SIZE"
 echo ""
 echo "To send via email:"
 echo "1. Attach the archive to your email"
-echo "2. Subject: SummaryLLM Diagnostics - $(date +%Y-%m-%d)"
+echo "2. Subject: ActionPulse Diagnostics - $(date +%Y-%m-%d)"
 echo "3. Include any specific error messages or issues you encountered"
 echo ""
 echo "Archive contents:"

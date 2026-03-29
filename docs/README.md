@@ -1,10 +1,10 @@
-# SummaryLLM Documentation
+# ActionPulse Documentation
 
-Полная документация по SummaryLLM - системе ежедневного дайджеста корпоративных коммуникаций.
+Полная документация по ActionPulse - системе ежедневного дайджеста корпоративных коммуникаций.
 
 ## 📚 Обзор документации
 
-SummaryLLM - это privacy-first система для автоматического создания дайджестов корпоративных коммуникаций с использованием LLM. Система извлекает действия, упоминания и важную информацию из email и других источников, создавая краткие, структурированные отчёты.
+ActionPulse - это privacy-first система для автоматического создания дайджестов корпоративных коммуникаций с использованием LLM. Система извлекает действия, упоминания и важную информацию из email и других источников, создавая краткие, структурированные отчёты.
 
 ## 🚀 Быстрый старт
 
@@ -12,16 +12,16 @@ SummaryLLM - это privacy-first система для автоматическ
 
 ```bash
 # Полная установка с настройкой
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install.sh | bash
 
 # Быстрая установка
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/quick-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/quick-install.sh | bash
 ```
 
 ### Первый запуск
 
 ```bash
-cd ~/SummaryLLM
+cd ~/ActionPulse
 source .env
 cd digest-core
 python -m digest_core.cli run --dry-run  # Тест
@@ -158,8 +158,8 @@ EWS → normalize → thread → evidence split → context select
 
 ```bash
 # Клонировать репозиторий
-git clone https://github.com/d1249/SummaryLLM.git
-cd SummaryLLM
+git clone https://github.com/ruspg/ActionPulse.git
+cd ActionPulse
 
 # Установить зависимости
 cd digest-core
@@ -257,4 +257,4 @@ Internal corporate use only. Proprietary and confidential.
 
 ---
 
-**SummaryLLM** - делаем корпоративные коммуникации более управляемыми и эффективными! 🚀
+**ActionPulse** - делаем корпоративные коммуникации более управляемыми и эффективными! 🚀

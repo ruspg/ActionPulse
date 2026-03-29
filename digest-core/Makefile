@@ -10,7 +10,7 @@ setup:
 	fi
 
 setup-wizard:
-	@echo "Running SummaryLLM Interactive Setup..."
+	@echo "Running ActionPulse Interactive Setup..."
 	@cd .. && ./setup.sh
 
 test:

@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Быстрый старт с SummaryLLM - получите первый дайджест за 5 минут.
+Быстрый старт с ActionPulse - получите первый дайджест за 5 минут.
 
 ## Автоматическая установка (рекомендуется)
 
@@ -8,15 +8,15 @@
 
 ```bash
 # Полная установка с интерактивной настройкой
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install_interactive.sh | bash
 
 # Быстрая установка без интерактивной настройки
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/quick-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/quick-install.sh | bash
 ```
 
 ### Что происходит при установке
 
-1. **Клонирование репозитория** в `~/SummaryLLM`
+1. **Клонирование репозитория** в `~/ActionPulse`
 2. **Проверка зависимостей** (Python 3.11+, uv, docker)
 3. **Установка зависимостей** (если нужно)
 4. **Интерактивная настройка** (только для полной установки)
@@ -39,7 +39,7 @@ cd digest-core && make setup-wizard
 ### 1. Активируйте окружение
 
 ```bash
-cd ~/SummaryLLM
+cd ~/ActionPulse
 source .env
 ```
 
@@ -131,7 +131,7 @@ ls -la digest-core/out/digest-*.md
 crontab -e
 
 # Добавить строку:
-0 8 * * * cd /path/to/SummaryLLM/digest-core && source ../.env && python -m digest_core.cli run
+0 8 * * * cd /path/to/ActionPulse/digest-core && source ../.env && python -m digest_core.cli run
 ```
 
 ### Использование systemd (Linux)
@@ -200,4 +200,4 @@ cd digest-core && make env-check
 
 ---
 
-**Поздравляем!** 🎉 Вы успешно запустили SummaryLLM. Теперь у вас есть автоматический дайджест корпоративных коммуникаций!
+**Поздравляем!** 🎉 Вы успешно запустили ActionPulse. Теперь у вас есть автоматический дайджест корпоративных коммуникаций!

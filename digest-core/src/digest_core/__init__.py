@@ -1,5 +1,5 @@
 """
-SummaryLLM Digest Core - Email digest generation with LLM.
+ActionPulse Digest Core - Email digest generation with LLM.
 
 Pipeline version: 1.1.0 (breaking: removed PII functionality)
 Schema version: 3.0 (EnhancedDigestV3)

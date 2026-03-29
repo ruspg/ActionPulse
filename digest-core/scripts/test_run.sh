@@ -11,7 +11,7 @@ STATE_DIR="${STATE_DIR:-${HOME}/.digest-state}"
 LOG_LEVEL="${LOG_LEVEL:-DEBUG}"
 COLLECT_LOGS="${COLLECT_LOGS:-true}"
 
-echo "SummaryLLM Test Run"
+echo "ActionPulse Test Run"
 echo "=================="
 echo "Output directory: $OUT_DIR"
 echo "State directory: $STATE_DIR"

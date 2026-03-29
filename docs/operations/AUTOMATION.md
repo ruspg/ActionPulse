@@ -1,6 +1,6 @@
-# SummaryLLM Automation Guide
+# ActionPulse Automation Guide
 
-Руководство по автоматизации запуска SummaryLLM.
+Руководство по автоматизации запуска ActionPulse.
 
 ## Scheduling Options
 
@@ -62,7 +62,7 @@ sudo systemctl start digest-core.timer
 crontab -e
 
 # Добавить строку:
-0 8 * * * cd /path/to/SummaryLLM/digest-core && source ../.env && python -m digest_core.cli run
+0 8 * * * cd /path/to/ActionPulse/digest-core && source ../.env && python -m digest_core.cli run
 ```
 
 #### Docker with Cron
@@ -200,7 +200,7 @@ if ! python -m digest_core.cli run; then
     # Send alert (example with curl)
     curl -X POST "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK" \
          -H 'Content-type: application/json' \
-         --data '{"text":"SummaryLLM digest generation failed"}'
+         --data '{"text":"ActionPulse digest generation failed"}'
 fi
 ```
 

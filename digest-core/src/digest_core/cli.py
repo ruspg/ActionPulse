@@ -67,7 +67,7 @@ def run(
 def diagnose():
     """Run comprehensive diagnostics and collect system information."""
     try:
-        typer.echo("Running SummaryLLM diagnostics...")
+        typer.echo("Running ActionPulse diagnostics...")
         
         # Find scripts directory
         script_dir = Path(__file__).parent.parent.parent / "scripts"

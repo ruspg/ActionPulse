@@ -1,240 +1,93 @@
-# SummaryLLM
+# ActionPulse
 
-Ежедневный корпоративный дайджест коммуникаций с извлечением действий на основе LLM.
+**Daily pulse of actions from your inbox.**
 
-## 🛡️ Security & Robustness Guarantees
+Каждое утро — автоматический дайджест из корпоративной почты: что от тебя ждут, что срочно, что решили. Каждый пункт трассируется до оригинального письма.
 
-- **Строгая валидация JSON:** Все LLM-ответы валидируются Pydantic или срабатывает extractive fallback
-- **Timezone Safety:** Запрет naive datetime, единая нормализация к mailbox_tz (configurable)
-- **Degradation:** Автоматический extractive fallback при сбоях LLM (rule-based extraction)
-- **Метрики:** Prometheus счётчики для JSON errors, degradations, TZ issues
+---
 
-## Quick Start
+## Что это
 
-### Автоматическая установка (рекомендуется)
+Single-tenant CLI инструмент. Читает Exchange inbox, прогоняет через 8-стадийный pipeline, доставляет в Mattermost DM.
 
-```bash
-# Полная установка с интерактивной настройкой (рекомендуется)
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash
+**Не суммаризатор** — LLM извлекает факты из писем, а не пишет от себя. Три секции на выходе:
+- **Мои действия** — что от тебя ожидают
+- **Срочное** — дедлайны ≤2 рабочих дней
+- **К сведению** — что решили без тебя
 
-# Быстрая установка без интерактивной настройки
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/quick-install.sh | bash
+**Не SaaS** — работает на корп-инфраструктуре, данные не покидают периметр.
 
-# С опциями (полная установка)
-curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash -s -- --install-dir /opt/summaryllm
-```
+---
 
-#### macOS (Homebrew) — быстрый старт
+## Быстрый старт
 
 ```bash
-# Установка зависимостей
-brew update
-brew install python@3.11 uv docker openssl curl git
+git clone https://github.com/ruspg/ActionPulse.git
+cd ActionPulse/digest-core
 
-# Временный PATH для одной команды
-PATH="$(brew --prefix)/opt/python@3.11/bin:$PATH" digest-core/scripts/install_interactive.sh --auto-brew --add-path
+# Установить зависимости
+uv sync
 
-# Явный запуск CLI через 3.11
-cd digest-core
-python3.11 -m pip install -e .
-python3.11 -m digest_core.cli run --dry-run
-```
+# Настроить (скопировать и заполнить)
+cp configs/config.example.yaml configs/config.yaml
+cp .env.example .env   # EWS_PASSWORD, LLM_TOKEN, MM_WEBHOOK_URL
 
-### Ручная установка
+# Dry-run (без LLM, только ingest + normalize)
+python -m digest_core.cli run --dry-run
 
-Если у вас уже есть клон репозитория:
-
-```bash
-# Запуск интерактивного мастера настройки
-./digest-core/scripts/setup.sh
-
-# Или из директории digest-core
-cd digest-core && make setup-wizard
-```
-
-### После настройки
-
-Скрипт установки автоматически создаёт виртуальное окружение в `digest-core/.venv`.
-
-1. **Активируйте виртуальное окружение**:
-   ```bash
-   source digest-core/.venv/bin/activate
-   ```
-
-2. **Загрузите переменные окружения**:
-   ```bash
-   source .env
-   ```
-
-3. **Перейдите в директорию digest-core**:
-   ```bash
-   cd digest-core
-   ```
-
-4. **Запустите первый дайджест**:
-   ```bash
-   # Тестовый запуск (без LLM)
-   python -m digest_core.cli run --dry-run
-   
-   # Полный запуск для сегодня
-   python -m digest_core.cli run
-   
-   # Автоматический тестовый запуск с диагностикой
-   ./digest-core/scripts/test_run.sh
-   ```
-
-**Альтернатива**: Запуск без активации venv:
-```bash
-source .env
-cd digest-core
-.venv/bin/python -m digest_core.cli run --dry-run
-```
-
-## Документация и рабочие артефакты
-
-- Вся вспомогательная документация (описания PR, отчёты, миграции) хранится в каталоге [`docs/`](./docs/). Исторические версии перенесены в подраздел [`docs/legacy/`](./docs/legacy/), чтобы избежать дублирования файлов в корне репозитория.
-- Рабочие артефакты генерации (`out/`), промежуточные состояния (`.state/`) и логи (`logs/`) добавлены в `.gitignore`. Если нужно сохранить структуру директорий, используйте пустые файлы `.gitkeep`, но не коммитьте сами артефакты.
-- При добавлении новых гайдов или отчётов сразу размещайте их в подходящем разделе `docs/` (например, `docs/planning/`, `docs/development/`, `docs/testing/`).
-
-## Устранение проблем при установке
-
-### Ошибки TLS/SSL сертификатов
-
-Если при установке возникает ошибка `invalid peer certificate: UnknownIssuer`:
-
-```bash
-# Используйте trusted-host для обхода проблем с корпоративными сертификатами
-cd digest-core
-source .venv/bin/activate
-pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -e .
-```
-
-### Отсутствует venv
-
-Если виртуальное окружение не создано:
-
-```bash
-# Запустите скрипт диагностики
-./digest-core/scripts/fix_installation.sh
-
-# Или создайте вручную
-cd digest-core
-python3.11 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e .
-```
-
-### Устаревшая конфигурация
-
-Если получаете ошибку `Cannot determine NTLM username`:
-
-```bash
-# Обновите репозиторий
-git pull
-
-# Пересоздайте конфигурацию
-./digest-core/scripts/setup.sh
-```
-
-## Основные команды
-
-```bash
-# Базовый запуск (дайджест за сегодня)
+# Полный запуск
 python -m digest_core.cli run
-
-# Для конкретной даты
-python -m digest_core.cli run --from-date 2025-09-30
-
-# Dry-run режим (только ingest+normalize, без LLM)
-python -m digest_core.cli run --dry-run
-
-# Другая модель LLM
-python -m digest_core.cli run --model "Qwen/Qwen3-30B-A3B-Instruct-2507"
-
-# Кастомная директория вывода
-python -m digest_core.cli run --out ./my-digests
-
-# Используя make
-make run
 ```
 
-## Структура проекта
+Подробнее — в [`digest-core/CLAUDE.md`](digest-core/CLAUDE.md).
+
+---
+
+## Архитектура
 
 ```
-SummaryLLM/
-├── docs/              # Вся документация
-│   ├── installation/  # Руководства по установке
-│   ├── testing/       # Тестирование ⭐
-│   │   └── E2E_TESTING_GUIDE.md  # End-to-End тестирование
-│   ├── operations/    # Развертывание, автоматизация, мониторинг
-│   ├── development/   # Архитектура, технические детали, код
-│   ├── planning/      # Roadmap и планы развития
-│   ├── legacy/        # Архив исторических отчётов и записей
-│   ├── reference/     # Справочная информация
-│   └── troubleshooting/ # Решение проблем
-├── digest-core/       # Основное приложение
-│   ├── src/          # Исходный код
-│   ├── configs/      # Конфигурационные файлы
-│   ├── scripts/      # Все утилитарные скрипты (установка, тесты, диагностика)
-│   ├── prompts/      # Шаблоны LLM по версиям
-│   ├── out/          # Результаты дайджестов
-│   └── .state/       # Состояние синхронизации
-├── .gitignore        # Корневой gitignore
-├── .editorconfig     # Правила форматирования
-├── LICENSE           # Лицензия
-├── CHANGELOG.md      # История изменений
-└── CONTRIBUTING.md   # Гайд для контрибьюторов
+Exchange (EWS)
+    └── INGEST → NORMALIZE → THREADS → EVIDENCE → SELECT → LLM → ASSEMBLE → DELIVER
+                                                                               └── Mattermost DM
 ```
 
-## Тестирование на отдельном компьютере
+LLM: `qwen3.5-397b` через корп. gateway, 15 RPM, max 1 вызов за запуск.
 
-### Для тестировщиков: End-to-End тестирование
+Полные контракты стадий: [`digest-core/docs/ARCHITECTURE.md`](digest-core/docs/ARCHITECTURE.md).
 
-Если вам нужно установить и протестировать SummaryLLM на отдельном компьютере (в т.ч. корпоративном ноутбуке), следуйте **End-to-End Testing Guide**:
+---
 
-**[🧪 End-to-End Testing Guide](docs/testing/E2E_TESTING_GUIDE.md)** - Полное руководство от установки до отправки результатов
+## Принципы
 
-Этот гайд включает:
-- ✅ Пошаговую установку на чистой машине
-- ✅ Настройку для корпоративных ноутбуков
-- ✅ Smoke-тестирование и полный цикл
-- ✅ Сбор диагностики и отправку результатов
-- ✅ Troubleshooting для типичных проблем
+| | |
+|--|--|
+| **Extract-over-Generate** | LLM извлекает из evidence, каждый пункт привязан к `evidence_id` |
+| **Traceability** | Пункт → `evidence_id` → `source_ref` → оригинальное письмо |
+| **Privacy-first** | PII маскируется на уровне LLM Gateway, локальное хранение ≤7 дней |
+| **Idempotency** | `(user_id, date)` → один результат при любом числе перезапусков |
 
-**Быстрая диагностика окружения:**
-```bash
-# Проверка готовности системы
-./digest-core/scripts/doctor.sh
-```
+---
 
-### Для разработчиков: Локальное тестирование
+## Разработка
 
 ```bash
-# Автоматический тестовый запуск с диагностикой
-cd digest-core && ./scripts/test_run.sh
-
-# Только smoke-тест (без LLM)
-python -m digest_core.cli run --dry-run
-
-# Сбор диагностики вручную
-./digest-core/scripts/collect_diagnostics.sh
+cd digest-core
+make test    # все тесты (mocked, без сети)
+make lint
+make smoke   # dry-run smoke test
 ```
 
-### Дополнительная документация по тестированию
-- **[📋 Детальный чек-лист](docs/testing/MANUAL_TESTING_CHECKLIST.md)** - Подробное тестирование всех компонентов
-- **[📧 Отправка результатов](docs/testing/SEND_RESULTS.md)** - Как отправить результаты через корпоративную почту
-- **[🔍 Сбор диагностики](digest-core/scripts/collect_diagnostics.sh)** - Автоматический сбор логов и метрик
+EWS и LLM Gateway — только с корп. сети. Для разработки вне периметра:
 
-## Документация
+```bash
+# Снять снапшот inbox'а изнутри
+python -m digest_core.cli run --dump-ingest /tmp/snapshot.json
 
-- **[📚 Полная документация](docs/README.md)** - Навигация по всей документации
-- **[🚀 Quick Start](docs/installation/QUICK_START.md)** - Быстрый старт за 5 минут
-- **[🔧 Installation Guide](docs/installation/INSTALL.md)** - Подробное руководство по установке
-- **[🐳 Deployment](docs/operations/DEPLOYMENT.md)** - Развертывание в Docker, systemd, dedicated machine
-- **[⏰ Automation](docs/operations/AUTOMATION.md)** - Настройка автоматизации (cron, systemd timer, rotation)
-- **[📊 Monitoring](docs/operations/MONITORING.md)** - Мониторинг, метрики, health checks, логирование
-- **[🚨 Troubleshooting](docs/troubleshooting/TROUBLESHOOTING.md)** - Решение проблем и отладка
+# Воспроизвести снаружи
+python -m digest_core.cli run --replay-ingest /tmp/snapshot.json
+```
+
+---
 
 ## License
 

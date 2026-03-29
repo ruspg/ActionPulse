@@ -286,12 +286,12 @@ mkdir -p "$OUT_DIR" "$STATE_DIR" "$TMPDIR"
 **Проблема: Корпоративный CA сертификат**
 ```bash
 # Получите корпоративный CA у IT
-mkdir -p ~/SummaryLLM/certs
-cp corporate-ca.pem ~/SummaryLLM/certs/
+mkdir -p ~/ActionPulse/certs
+cp corporate-ca.pem ~/ActionPulse/certs/
 
 # В config.yaml:
 # ews:
-#   verify_ca: "$HOME/SummaryLLM/certs/corporate-ca.pem"
+#   verify_ca: "$HOME/ActionPulse/certs/corporate-ca.pem"
 ```
 
 **Проблема: Корпоративный прокси**
@@ -308,7 +308,7 @@ git config --global http.proxy http://proxy.company.com:8080
 # Используйте WSL2 вместо нативного Windows
 wsl --install  # Требуется admin права один раз
 wsl
-cd /mnt/c/Users/YourName/SummaryLLM
+cd /mnt/c/Users/YourName/ActionPulse
 ```
 
 ### 11. Getting Help

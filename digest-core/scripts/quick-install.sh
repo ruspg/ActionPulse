@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-# SummaryLLM Quick Installer (Non-Interactive)
-# Usage: curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/quick-install.sh | bash
+# ActionPulse Quick Installer (Non-Interactive)
+# Usage: curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/quick-install.sh | bash
 
 # Color codes
 GREEN='\033[0;32m'
@@ -17,10 +17,10 @@ print_header() { echo -e "${PURPLE}$1${NC}"; }
 print_step() { echo -e "\n${CYAN}=== $1 ===${NC}"; }
 
 # Configuration
-REPO_URL="https://github.com/d1249/SummaryLLM.git"
-INSTALL_DIR="$HOME/SummaryLLM"
+REPO_URL="https://github.com/ruspg/ActionPulse.git"
+INSTALL_DIR="$HOME/ActionPulse"
 
-print_header "🚀 SummaryLLM Quick Installer"
+print_header "🚀 ActionPulse Quick Installer"
 echo "=================================="
 
 # Clone repository
@@ -53,7 +53,7 @@ cd ..
 # Create minimal .env template
 print_step "Creating Configuration Template"
 cat > .env.template << 'EOF'
-# SummaryLLM Environment Variables
+# ActionPulse Environment Variables
 # Copy this file to .env and fill in your values
 
 # EWS Configuration
@@ -69,7 +69,7 @@ EOF
 # Create minimal config template
 mkdir -p digest-core/configs
 cat > digest-core/configs/config.template.yaml << 'EOF'
-# SummaryLLM Configuration Template
+# ActionPulse Configuration Template
 # Copy this file to config.yaml and customize
 
 time:

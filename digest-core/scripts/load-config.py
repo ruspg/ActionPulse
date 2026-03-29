@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для автоматической загрузки переменных окружения из конфигурации SummaryLLM.
+Скрипт для автоматической загрузки переменных окружения из конфигурации ActionPulse.
 """
 import os
 import sys
@@ -16,7 +16,7 @@ def load_config():
     project_dir = script_dir.parent
     os.chdir(project_dir)
     
-    print("=== Загрузка конфигурации SummaryLLM ===")
+    print("=== Загрузка конфигурации ActionPulse ===")
     print(f"Директория проекта: {project_dir}")
     
     # Ищем конфигурационный файл

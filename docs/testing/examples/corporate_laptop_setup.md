@@ -2,7 +2,7 @@
 
 ## Обзор
 
-Корпоративные ноутбуки часто имеют ограничения безопасности и специфичные конфигурации, которые влияют на установку и работу SummaryLLM. Этот документ описывает типичные проблемы и их решения.
+Корпоративные ноутбуки часто имеют ограничения безопасности и специфичные конфигурации, которые влияют на установку и работу ActionPulse. Этот документ описывает типичные проблемы и их решения.
 
 ---
 
@@ -22,8 +22,8 @@
 ```bash
 # Установка проекта
 cd $HOME
-git clone <repo-url> SummaryLLM
-cd SummaryLLM
+git clone <repo-url> ActionPulse
+cd ActionPulse
 
 # Все рабочие директории в $HOME
 export OUT_DIR="$HOME/.digest-out"
@@ -52,11 +52,11 @@ mkdir -p "$OUT_DIR" "$STATE_DIR" "$TMPDIR" "$LOG_DIR"
 openssl x509 -inform DER -in corporate-root-ca.crt -out corporate-root-ca.pem
 
 # 3. Скопируйте в проект
-mkdir -p $HOME/SummaryLLM/certs
-cp corporate-root-ca.pem $HOME/SummaryLLM/certs/
+mkdir -p $HOME/ActionPulse/certs
+cp corporate-root-ca.pem $HOME/ActionPulse/certs/
 
 # 4. Настройте config.yaml
-nano $HOME/SummaryLLM/digest-core/configs/config.yaml
+nano $HOME/ActionPulse/digest-core/configs/config.yaml
 ```
 
 **В config.yaml:**
@@ -64,7 +64,7 @@ nano $HOME/SummaryLLM/digest-core/configs/config.yaml
 ews:
   endpoint: "https://owa.company.com/EWS/Exchange.asmx"
   verify_ssl: true
-  verify_ca: "$HOME/SummaryLLM/certs/corporate-root-ca.pem"
+  verify_ca: "$HOME/ActionPulse/certs/corporate-root-ca.pem"
 ```
 
 #### Решение B: Временный обход (только для тестирования!)
@@ -182,7 +182,7 @@ wsl --install
 
 # 2. После установки WSL, работайте в Linux окружении
 wsl
-cd /mnt/c/Users/YourUsername/SummaryLLM
+cd /mnt/c/Users/YourUsername/ActionPulse
 ./digest-core/scripts/doctor.sh
 ```
 
@@ -214,7 +214,7 @@ bash ./digest-core/scripts/doctor.sh
 zip -r diagnostics-$(date +%Y%m%d-%H%M%S).zip diagnostics-dir/
 
 # 3. Временно: сканируйте файлы вручную
-clamscan -r $HOME/SummaryLLM
+clamscan -r $HOME/ActionPulse
 ```
 
 ---
@@ -230,7 +230,7 @@ ews:
   user_upn: "${EWS_USER_UPN}"  # Из переменных окружения
   ntlm_username: "${EWS_USER_DOMAIN}\\${EWS_USER_LOGIN}"
   verify_ssl: true
-  verify_ca: "$HOME/SummaryLLM/certs/corporate-ca.pem"
+  verify_ca: "$HOME/ActionPulse/certs/corporate-ca.pem"
   folders:
     - "Inbox"
   page_size: 100
@@ -385,7 +385,7 @@ pip install --proxy http://proxy.company.com:8080 -e .
 git config --global http.proxy http://proxy.company.com:8080
 
 # Решение 2: Используйте SSH вместо HTTPS (если доступно)
-git clone git@github.com:user/SummaryLLM.git
+git clone git@github.com:user/ActionPulse.git
 
 # Решение 3: Временно отключите SSL verify (не рекомендуется!)
 git config --global http.sslVerify false
@@ -423,7 +423,7 @@ curl --cacert ~/certs/corporate-ca.pem \
 5. 📂 Подтверждение, что можно использовать `$HOME` для проектов
 
 ### Предоставьте им:
-- Название проекта: SummaryLLM
+- Название проекта: ActionPulse
 - Цель: Тестирование email digest системы
 - Требуемые подключения:
   - `owa.company.com:443` (EWS)

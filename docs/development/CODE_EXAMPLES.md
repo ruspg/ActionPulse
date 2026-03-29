@@ -1,6 +1,6 @@
 # Code Examples
 
-Практические примеры кода для разработки SummaryLLM с детальными объяснениями и best practices.
+Практические примеры кода для разработки ActionPulse с детальными объяснениями и best practices.
 
 ## CLI Implementation
 
@@ -16,7 +16,7 @@ from digest_core.config import Config
 
 app = typer.Typer(
     name="digest-core",
-    help="SummaryLLM Digest Core - Daily corporate communications digest",
+    help="ActionPulse Digest Core - Daily corporate communications digest",
     add_completion=False
 )
 
@@ -718,4 +718,4 @@ def example_usage():
 
 ---
 
-**Итог:** Эти примеры кода демонстрируют лучшие практики для разработки SummaryLLM, включая обработку ошибок, структурированное логирование, валидацию данных и интеграцию с внешними сервисами.
+**Итог:** Эти примеры кода демонстрируют лучшие практики для разработки ActionPulse, включая обработку ошибок, структурированное логирование, валидацию данных и интеграцию с внешними сервисами.

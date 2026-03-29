@@ -1,6 +1,6 @@
-# SummaryLLM Monitoring Guide
+# ActionPulse Monitoring Guide
 
-Руководство по мониторингу и observability для SummaryLLM.
+Руководство по мониторингу и observability для ActionPulse.
 
 ## Metrics
 
@@ -157,7 +157,7 @@ scrape_configs:
 ```json
 {
   "dashboard": {
-    "title": "SummaryLLM Dashboard",
+    "title": "ActionPulse Dashboard",
     "panels": [
       {
         "title": "LLM Response Time",
@@ -341,7 +341,7 @@ if ! python -m digest_core.cli run; then
     curl -X POST "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK" \
          -H 'Content-type: application/json' \
          --data '{
-           "text": "SummaryLLM digest generation failed",
+           "text": "ActionPulse digest generation failed",
            "attachments": [{
              "color": "danger",
              "fields": [{
@@ -360,7 +360,7 @@ fi
 # email-alert.sh
 
 if ! python -m digest_core.cli run; then
-    echo "SummaryLLM digest generation failed" | mail -s "Digest Alert" admin@corp.com
+    echo "ActionPulse digest generation failed" | mail -s "Digest Alert" admin@corp.com
 fi
 ```
 

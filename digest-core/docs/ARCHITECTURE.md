@@ -1,4 +1,4 @@
-# SummaryLLM Architecture & Technical Specification
+# ActionPulse Architecture & Technical Specification
 
 > **Version:** 1.2.0 | **Status:** Living Document | **Last Updated:** 2026-03-29
 >

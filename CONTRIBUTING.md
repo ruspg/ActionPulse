@@ -1,6 +1,6 @@
-# Contributing to SummaryLLM
+# Contributing to ActionPulse
 
-Thank you for your interest in contributing to SummaryLLM! This document provides guidelines for contributing to the project.
+Thank you for your interest in contributing to ActionPulse! This document provides guidelines for contributing to the project.
 
 ## Development Setup
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing to SummaryLLM! This document provide
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/d1249/SummaryLLM.git
-   cd SummaryLLM
+   git clone https://github.com/ruspg/ActionPulse.git
+   cd ActionPulse
    ```
 
 2. **Set up the development environment:**
@@ -222,4 +222,4 @@ We use [Semantic Versioning](https://semver.org/):
 
 ## License
 
-By contributing to SummaryLLM, you agree that your contributions will be licensed under the same proprietary license as the project.
+By contributing to ActionPulse, you agree that your contributions will be licensed under the same proprietary license as the project.

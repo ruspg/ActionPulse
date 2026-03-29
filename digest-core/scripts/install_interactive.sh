@@ -1,9 +1,9 @@
 #!/bin/bash
 set -eo pipefail
 
-# SummaryLLM One-Command Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash
-# Or: curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install_interactive.sh | bash -s -- --help
+# ActionPulse One-Command Installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install_interactive.sh | bash
+# Or: curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install_interactive.sh | bash -s -- --help
 
 # Color codes for output
 RED='\033[0;31m'
@@ -15,8 +15,8 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_URL="https://github.com/d1249/SummaryLLM.git"
-DEFAULT_INSTALL_DIR="$HOME/SummaryLLM"
+REPO_URL="https://github.com/ruspg/ActionPulse.git"
+DEFAULT_INSTALL_DIR="$HOME/ActionPulse"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -123,14 +123,14 @@ parse_args() {
 
 show_help() {
     cat << EOF
-SummaryLLM One-Command Installer
+ActionPulse One-Command Installer
 
 USAGE:
-    curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install.sh | bash
-    curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install.sh | bash -s -- [OPTIONS]
+    curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install.sh | bash -s -- [OPTIONS]
 
 OPTIONS:
-    --install-dir DIR     Installation directory (default: \$HOME/SummaryLLM)
+    --install-dir DIR     Installation directory (default: \$HOME/ActionPulse)
     --skip-deps          Skip dependency installation
     --skip-setup         Skip interactive setup wizard
     --verbose, -v        Verbose output
@@ -143,16 +143,16 @@ OPTIONS:
 
 EXAMPLES:
     # Basic installation
-    curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install.sh | bash
     
     # Install to custom directory
-    curl -fsSL https://raw.githubusercontent.com/d1249/SummaryLLM/main/digest-core/scripts/install.sh | bash -s -- --install-dir /opt/summaryllm
+    curl -fsSL https://raw.githubusercontent.com/ruspg/ActionPulse/main/digest-core/scripts/install.sh | bash -s -- --install-dir /opt/actionpulse
     
     # Auto-install missing deps via Homebrew and add PATH for python@3.11
     PATH="\$(brew --prefix)/opt/python@3.11/bin:\$PATH" digest-core/scripts/install.sh --auto-brew --add-path
 
 WHAT THIS SCRIPT DOES:
-    1. Clones SummaryLLM repository
+    1. Clones ActionPulse repository
     2. Checks and installs dependencies (Python 3.11+, uv, docker, etc.)
     3. Runs interactive setup wizard
     4. Installs Python dependencies
@@ -285,7 +285,7 @@ check_dependencies() {
 
     if [[ "$SKIP_DEPS" == "true" ]]; then
         print_warning "Missing tools detected but --skip-deps specified: ${missing_tools[*]}"
-        print_info "You may need to install these manually before running SummaryLLM"
+        print_info "You may need to install these manually before running ActionPulse"
         return
     fi
 
@@ -436,7 +436,7 @@ clone_repository() {
     fi
     
     # Clone repository
-    print_info "Cloning SummaryLLM to $INSTALL_DIR..."
+    print_info "Cloning ActionPulse to $INSTALL_DIR..."
     git clone "$REPO_URL" "$INSTALL_DIR"
     
     # Change to installation directory
@@ -542,7 +542,7 @@ show_next_steps() {
     echo "   - MONITORING.md (monitoring guide)"
     echo
     
-    print_success "SummaryLLM is ready to use! 🎉"
+    print_success "ActionPulse is ready to use! 🎉"
 }
 
 # Main function
@@ -555,13 +555,13 @@ main() {
     
     # Welcome message
     echo
-    print_header "🚀 SummaryLLM One-Command Installer"
+    print_header "🚀 ActionPulse One-Command Installer"
     echo "=============================================="
     echo
     
     # Check if running from existing repository
     if is_existing_repo; then
-        print_info "Running from existing SummaryLLM repository"
+        print_info "Running from existing ActionPulse repository"
         INSTALL_DIR="$REPO_ROOT"
     else
         # Parse arguments
