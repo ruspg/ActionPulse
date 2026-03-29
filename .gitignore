@@ -1,3 +1,6 @@
+# Local archive (not tracked)
+.archive/
+
 # Environment and credentials
 .env
 .env.*
@@ -48,14 +51,12 @@ htmlcov/
 .tox/
 
 # Project specific
-out/*
+out/
 **/.state/*
 **/logs/*
 digest-core/out/
 digest-core/.state/
 *.backup.*
-!out/.gitkeep
-!*.gitkeep
 
 # Logs
 *.log
