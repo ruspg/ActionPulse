@@ -887,6 +887,19 @@ digest-core/
   drill-down в evidence, или поиск по 30+ дайджестам. Тогда — lightweight web UI.
 - **Consequence:** No `fastapi` dependency. Delivery failure = warning, not crash.
 
+### ADR-012: "Code outside, run inside, debug outside" workflow
+- **Decision:** Development and debugging happens on general network dev workstation.
+  Real pipeline runs (EWS + LLM) happen only in corp network. Diagnostic bundles
+  transferred via MM DM for analysis outside.
+- **Rationale:** EWS and LLM Gateway accessible only from corp network. Developer
+  productivity requires ability to iterate without being physically on corp network.
+- **Consequence:**
+  - Diagnostic export CLI (`export-diagnostics`) is P0 for Phase 0
+  - EWS replay mode (`--dump-ingest` / `--replay-ingest`) is P0 for Phase 0
+  - All CI tests use mocks only — no real EWS/LLM in CI
+  - MM delivery testable from anywhere (MM accessible from general network)
+  - LLM replay mode (`--record-llm` / `--replay-llm`) is P1 for Phase 1
+
 ### ADR-011: Delivery is best-effort (not transactional)
 - **Decision:** Сбой доставки в MM не блокирует pipeline. File artifacts уже
   записаны Stage 7 — данные не теряются.
@@ -1092,27 +1105,195 @@ digest-core/
 
 ---
 
-## 17. Testing Strategy
+## 17. Network Topology & Development Workflow
 
-### Unit Tests
+### 17.1 Network zones
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                  CORP NETWORK (закрытая)                   │
+│                                                            │
+│  ┌───────────┐   ┌───────────┐   ┌─────────────────────┐ │
+│  │ Exchange   │   │ Corp LLM  │   │ digest-core (prod)  │ │
+│  │ EWS/NTLM  │   │ Gateway   │   │ cron + Docker       │ │
+│  └───────────┘   └───────────┘   └──────────┬──────────┘ │
+│        ▲               ▲                     │            │
+│        │               │              diagnostic export   │
+│        │               │              (logs, traces,      │
+│   ONLY from corp  ONLY from corp      artifacts)          │
+│                                              │            │
+└──────────────────────────────────────────────┼────────────┘
+                                               │
+                    ════════════════════════════╪═══════════
+                         NETWORK BOUNDARY       │
+                    ════════════════════════════╪═══════════
+                                               │
+┌──────────────────────────────────────────────┼────────────┐
+│                  GENERAL NETWORK                          │
+│                                              ▼            │
+│  ┌───────────┐   ┌───────────┐   ┌─────────────────────┐ │
+│  │Mattermost │   │  GitHub   │   │ Dev workstation     │ │
+│  │ (delivery │   │  (repo,   │   │ (code, debug,       │ │
+│  │  + bot)   │   │   CI)     │   │  analyze traces)    │ │
+│  └───────────┘   └───────────┘   └─────────────────────┘ │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+### 17.2 Что это значит для разработки
+
+| Сервис | Где доступен | Следствие |
+|--------|-------------|-----------|
+| **Exchange (EWS)** | Только corp network | Реальный ingest тестируется только изнутри. CI = только mock |
+| **LLM Gateway** | Только corp network | LLM extraction тестируется только изнутри. CI = mock |
+| **Mattermost** | General + corp | Delivery можно тестировать откуда угодно |
+| **GitHub** | General + corp | CI/CD, code review — без ограничений |
+| **Dev workstation** | General network | Код пишем и дебажим снаружи, запускаем реально — изнутри |
+
+### 17.3 Diagnostic Export (corp → dev workstation)
+
+**Проблема:** Pipeline работает в corp сети. Дебаг и анализ — снаружи.
+Нужен механизм передачи диагностики из corp наружу.
+
+**Diagnostic bundle** — единый архив для передачи из corp сети:
+
+```
+diagnostic-{trace_id}-{date}.tar.gz
+├── run.log                    # Structured JSON log (PII-redacted)
+├── digest-{date}.json         # Output artifact (machine-readable)
+├── digest-{date}.md           # Output artifact (human-readable)
+├── pipeline-metrics.json      # Per-stage timing, token counts, error counts
+├── evidence-summary.json      # Evidence chunk stats (NO content — privacy)
+│   ├── chunk_count, total_tokens, top_scores
+│   ├── filtered_service_count, selected_count
+│   └── per_thread: {conversation_id, message_count, chunk_count}
+├── config-sanitized.yaml      # Config with secrets stripped
+├── ews-fetch-stats.json       # Fetch timing, message count, errors (NO content)
+├── llm-request-trace.json     # Request metadata (NO prompt/response body)
+│   ├── model, tokens_in, tokens_out, latency_ms
+│   ├── http_status, retry_count
+│   └── validation_errors (dropped items count)
+└── env-info.txt               # Python version, package versions, OS
+```
+
+**Что НЕ включается (privacy):**
+- Тела писем (raw или нормализованные)
+- Evidence chunk content
+- LLM prompt или response body
+- Email addresses из логов (если не redacted)
+- EWS password, LLM token
+
+**CLI команда:**
+```bash
+# Собрать diagnostic bundle для последнего run
+python -m digest_core.cli export-diagnostics --trace-id <id> --out /tmp/
+
+# Собрать для конкретной даты
+python -m digest_core.cli export-diagnostics --date 2026-03-29
+```
+
+**Каналы передачи (от простого к удобному):**
+1. **Ручной:** scp/sftp bundle на dev workstation
+2. **MM upload:** бот отправляет bundle файлом в DM (MM доступен из обеих сетей)
+3. **Автоматический:** при `--collect-logs` flag, пайплайн сам шлёт bundle в MM DM
+
+Рекомендация: **вариант 2 (MM upload)** — MM доступен отовсюду, bundle содержит
+только redacted данные, file upload через Bot API тривиален.
+
+### 17.4 Feature Development Workflow
+
+```
+Dev workstation (general network)     Corp network
+─────────────────────────────────     ────────────────────────
+1. Write code + unit tests
+2. make lint && make test (mocks)
+3. git push → GitHub CI (mocks)
+                                      4. git pull on corp machine
+                                      5. Real EWS + LLM integration test
+                                      6. Review digest quality in MM DM
+                                      7. export-diagnostics → MM DM
+8. Analyze diagnostic bundle
+9. Fix prompt / code
+10. goto 2
+```
+
+**Принцип: "Code outside, run inside, debug outside"**
+
+- Весь код пишется и тестируется (mock) на dev workstation
+- Реальные прогоны (EWS + LLM) только из corp сети
+- Diagnostic bundle передаётся через MM для анализа снаружи
+- MM delivery тестируется из любой сети
+
+### 17.5 Replay Mode (offline development)
+
+Для комфортной разработки без доступа к corp сети:
+
+**EWS Replay:** Сохранить результат реального EWS fetch как fixture, использовать
+для повторных прогонов pipeline без EWS-соединения.
+
+```bash
+# Изнутри corp сети: сохранить snapshot
+python -m digest_core.cli run --from-date 2026-03-29 --dump-ingest /tmp/ews-snapshot.json
+
+# Снаружи: replay без EWS
+python -m digest_core.cli run --replay-ingest /tmp/ews-snapshot.json
+```
+
+**LLM Replay:** Аналогично — сохранить LLM request/response для offline replay.
+
+```bash
+# Изнутри corp сети: запуск с записью
+python -m digest_core.cli run --record-llm /tmp/llm-recording.json
+
+# Снаружи: replay без LLM
+python -m digest_core.cli run --replay-llm /tmp/llm-recording.json
+```
+
+**Приоритет реализации:**
+- Phase 0: `export-diagnostics` CLI command + MM upload
+- Phase 0: `--dump-ingest` / `--replay-ingest` (EWS snapshot)
+- Phase 1: `--record-llm` / `--replay-llm` (LLM recording)
+
+---
+
+## 18. Testing Strategy
+
+### Unit Tests (anywhere — no network needed)
 - Each stage has dedicated test file
 - Mock external dependencies (EWS, LLM Gateway)
 - Fixture-based: `tests/fixtures/emails/` (10 email samples)
 - Schema validation: Pydantic models enforce contracts
+- **Run:** `make test` on dev workstation or CI
 
-### Integration Tests
+### Integration Tests — Mock (anywhere)
 - End-to-end with mock LLM (`tests/mock_llm_gateway.py`)
+- EWS replay fixtures (saved from corp network runs)
 - Config loading from fixtures
 - Idempotency tests (T-48h window)
 - Empty day handling
+- **Run:** `make test` — no network dependencies
+
+### Integration Tests — Real (corp network ONLY)
+- Real EWS fetch against Exchange server
+- Real LLM extraction against qwen3.5-397b
+- Real MM delivery to test channel
+- **Run:** manual from corp workstation
+- **Output:** diagnostic bundle → MM DM for analysis
 
 ### Smoke Tests
-- `make smoke` — dry-run with example config
-- Docker build + run validation
+- `make smoke` — dry-run with example config (anywhere)
+- Docker build + run validation (anywhere)
+
+### Replay Tests (anywhere, requires prior corp run)
+- `--replay-ingest` from saved EWS snapshot
+- `--replay-llm` from saved LLM recording
+- Full pipeline without any network dependencies
+- **Key for prompt iteration:** change prompt → replay → compare output
 
 ### Manual Testing
 - Checklist in `docs/testing/MANUAL_TESTING_CHECKLIST.md`
 - 7 stages: env setup, smoke, integration, edge cases, quality, diagnostics, results
+- **Stages 1-4:** anywhere (mocks). **Stages 5-7:** corp network only
 
 ### NOT doing (and why)
 - Load testing — single user, ≤100 emails, latency is LLM-bound
@@ -1137,6 +1318,9 @@ digest-core/
 | **evidence_id** | UUID4 конкретного evidence chunk (уникален в пределах run) |
 | **RPM** | Requests Per Minute — rate limit LLM Gateway (15 RPM для qwen3.5-397b) |
 | **Budget Owner** | Стадия pipeline, ответственная за enforcement token budget (Stage 4) |
+| **Diagnostic Bundle** | tar.gz архив с redacted логами, метриками и артефактами для дебага вне corp сети |
+| **Replay Mode** | Прогон pipeline из сохранённых EWS/LLM snapshot-ов без реального сетевого доступа |
+| **Corp Network** | Закрытая корпоративная сеть с доступом к Exchange и LLM Gateway |
 
 ## Appendix B: Quick Reference — CLI
 
