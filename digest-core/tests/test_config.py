@@ -3,16 +3,13 @@ Test configuration classes and methods.
 """
 import pytest
 import os
-from unittest.mock import patch, Mock
-from pydantic import BaseModel, Field
+from unittest.mock import patch
 from digest_core.config import (
     EWSConfig,
     Config,
     LLMConfig,
     TimeConfig,
     ObservabilityConfig,
-    MattermostDeliverConfig,
-    DegradeConfig,
 )
 
 
@@ -201,7 +198,6 @@ class TestEnvOverYamlPrecedence:
         env_keys = ["DIGEST_LLM_TIMEOUT_S", "LLM_ENDPOINT"]
         with patch.dict(os.environ, {k: "" for k in env_keys}, clear=False):
             config = Config()
-            original = config.llm.timeout_s
             config._merge_model(
                 config.llm,
                 {"timeout_s": 999},

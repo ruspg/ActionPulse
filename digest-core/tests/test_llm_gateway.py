@@ -3,7 +3,6 @@ Test LLM gateway against the current retry and response contract.
 """
 
 import json
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
