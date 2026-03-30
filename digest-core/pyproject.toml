@@ -31,5 +31,9 @@ markers = [
     "slow: tests that are intentionally slower than the rest of the suite",
 ]
 
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
 [tool.ruff]
 line-length = 100
