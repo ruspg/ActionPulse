@@ -52,7 +52,7 @@ ACTION_VERBS_RU = [
     # Responses
     "ответить", "ответьте", "уточнить", "уточните",
     # Urgency
-    "срочно", "срок", "дедлайн", "до", "к", "не позднее",
+    "срочно", "срок", "дедлайн", "не позднее",
     # Updates
     "обновить", "обновите", "актуализировать", "актуализируйте"
 ]
@@ -84,7 +84,7 @@ def extract_action_verbs(text: str) -> List[str]:
     found_verbs = []
     
     for verb in ALL_ACTION_VERBS:
-        if verb in text_lower:
+        if _stdre.search(rf"\b{_stdre.escape(verb)}\b", text_lower):
             if verb not in found_verbs:
                 found_verbs.append(verb)
     
@@ -200,7 +200,7 @@ def normalize_datetime_to_tz(dt: datetime, tz_name: str) -> str:
         # Return ISO-8601 format
         return dt_in_tz.isoformat()
     
-    except Exception as e:
+    except Exception:
         # Fallback to UTC ISO format
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=pytz.utc)
@@ -224,4 +224,3 @@ def calculate_sender_rank(sender_email: str) -> int:
     # - 2 = manager/important
     # - 3 = system/automated
     return 1
-

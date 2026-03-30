@@ -3,13 +3,13 @@ Exchange Web Services (EWS) email ingestion with NTLM authentication.
 """
 import structlog
 from datetime import datetime, timezone, timedelta
-from typing import List, NamedTuple, Optional
-from dataclasses import dataclass
+from typing import List, Optional
+from dataclasses import dataclass, field
 from pathlib import Path
 import pytz
 from exchangelib import (
     Credentials, Account, DELEGATE, Configuration, NTLM, 
-    Message, Folder, Q, EWSDateTime, UTC
+    Message, Folder, Q, EWSDateTime
 )
 from exchangelib.protocol import BaseProtocol
 import tenacity
@@ -21,11 +21,11 @@ from digest_core.utils.tz import ensure_aware, to_utc
 logger = structlog.get_logger()
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class NormalizedMessage:
     """Normalized email message with canonical email metadata fields."""
     msg_id: str
-    conversation_id: str
+    conversation_id: Optional[str]
     datetime_received: datetime
     sender_email: str
     subject: str
@@ -38,13 +38,79 @@ class NormalizedMessage:
     attachment_types: List[str]  # ["pdf", "xlsx", ...]
     
     # Canonical email metadata fields for forward/backward compatibility
-    from_email: str
-    from_name: Optional[str]
-    to_emails: List[str]
-    cc_emails: List[str]
-    message_id: str
-    body_norm: str
-    received_at: datetime
+    from_email: str = ""
+    from_name: Optional[str] = None
+    to_emails: List[str] = field(default_factory=list)
+    cc_emails: List[str] = field(default_factory=list)
+    message_id: str = ""
+    body_norm: str = ""
+    received_at: Optional[datetime] = None
+
+    def __init__(
+        self,
+        msg_id: str,
+        conversation_id: Optional[str],
+        datetime_received: Optional[datetime] = None,
+        sender_email: str = "",
+        subject: str = "",
+        text_body: str = "",
+        to_recipients: Optional[List[str]] = None,
+        cc_recipients: Optional[List[str]] = None,
+        importance: str = "Normal",
+        is_flagged: bool = False,
+        has_attachments: bool = False,
+        attachment_types: Optional[List[str]] = None,
+        *,
+        sender: Optional[str] = None,
+        from_email: str = "",
+        from_name: Optional[str] = None,
+        to_emails: Optional[List[str]] = None,
+        cc_emails: Optional[List[str]] = None,
+        message_id: str = "",
+        body_norm: str = "",
+        received_at: Optional[datetime] = None,
+    ) -> None:
+        sender_email = sender_email or sender or from_email
+        to_recipients = list(to_recipients or to_emails or [])
+        cc_recipients = list(cc_recipients or cc_emails or [])
+        attachment_types = list(attachment_types or [])
+        if datetime_received is None:
+            datetime_received = received_at or datetime.now(timezone.utc)
+
+        object.__setattr__(self, "msg_id", msg_id)
+        object.__setattr__(self, "conversation_id", conversation_id)
+        object.__setattr__(self, "datetime_received", datetime_received)
+        object.__setattr__(self, "sender_email", sender_email)
+        object.__setattr__(self, "subject", subject)
+        object.__setattr__(self, "text_body", text_body)
+        object.__setattr__(self, "to_recipients", to_recipients)
+        object.__setattr__(self, "cc_recipients", cc_recipients)
+        object.__setattr__(self, "importance", importance)
+        object.__setattr__(self, "is_flagged", is_flagged)
+        object.__setattr__(self, "has_attachments", has_attachments)
+        object.__setattr__(self, "attachment_types", attachment_types)
+        object.__setattr__(self, "from_email", from_email)
+        object.__setattr__(self, "from_name", from_name)
+        object.__setattr__(self, "to_emails", list(to_emails or []))
+        object.__setattr__(self, "cc_emails", list(cc_emails or []))
+        object.__setattr__(self, "message_id", message_id)
+        object.__setattr__(self, "body_norm", body_norm)
+        object.__setattr__(self, "received_at", received_at)
+        self.__post_init__()
+
+    def __post_init__(self) -> None:
+        if not self.from_email:
+            object.__setattr__(self, "from_email", self.sender_email)
+        if not self.to_emails:
+            object.__setattr__(self, "to_emails", list(self.to_recipients))
+        if not self.cc_emails:
+            object.__setattr__(self, "cc_emails", list(self.cc_recipients))
+        if not self.message_id:
+            object.__setattr__(self, "message_id", self.msg_id)
+        if not self.body_norm:
+            object.__setattr__(self, "body_norm", self.text_body)
+        if self.received_at is None:
+            object.__setattr__(self, "received_at", self.datetime_received)
     
     @property
     def sender(self) -> str:

@@ -5,12 +5,11 @@ LLM Gateway client for processing evidence chunks with retry logic.
 import json
 import time
 from typing import List, Dict, Any, Optional
-from pathlib import Path
 import httpx
 import tenacity
 import structlog
 from jinja2 import Environment, FileSystemLoader
-from digest_core.config import LLMConfig
+from digest_core.config import LLMConfig, PROJECT_ROOT
 from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.schemas import Digest, EnhancedDigest, EnhancedDigestV3
 from digest_core.llm.date_utils import get_current_datetime_in_tz
@@ -718,8 +717,8 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
         current_datetime = get_current_datetime_in_tz(tz_name)
 
         # Load and render prompt
-        prompts_dir = Path("prompts")
-        env = Environment(loader=FileSystemLoader(prompts_dir))
+        prompts_dir = PROJECT_ROOT / "prompts"
+        env = Environment(loader=FileSystemLoader(str(prompts_dir)))
         template_name = f"summarize.{prompt_version}"
         try:
             template_path = get_prompt_template_path(template_name)
@@ -728,15 +727,29 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
                 f"Unknown digest prompt version: {prompt_version}"
             ) from exc
 
-        template = env.get_template(template_path)
-
-        rendered_prompt = template.render(
-            digest_date=digest_date,
-            trace_id=trace_id,
-            current_datetime=current_datetime,
-            evidence=evidence_text,
-            evidence_count=len(evidence),
-        )
+        try:
+            template = env.get_template(template_path)
+            rendered_prompt = template.render(
+                digest_date=digest_date,
+                trace_id=trace_id,
+                current_datetime=current_datetime,
+                evidence=evidence_text,
+                evidence_count=len(evidence),
+            )
+        except Exception as exc:
+            logger.warning(
+                "Digest prompt template unavailable, using inline fallback prompt",
+                template_path=template_path,
+                prompts_dir=str(prompts_dir),
+                error=str(exc),
+            )
+            rendered_prompt = self._build_inline_digest_prompt(
+                digest_date=digest_date,
+                trace_id=trace_id,
+                current_datetime=current_datetime,
+                evidence_text=evidence_text,
+                evidence_count=len(evidence),
+            )
 
         # Prepare messages
         messages = [{"role": "user", "content": rendered_prompt}]
@@ -779,6 +792,44 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
             "digest": digest,
             "meta": response_data.get("meta", {}),
         }
+
+    def _build_inline_digest_prompt(
+        self,
+        digest_date: str,
+        trace_id: str,
+        current_datetime: str,
+        evidence_text: str,
+        evidence_count: int,
+    ) -> str:
+        """Fallback prompt for legacy digest processing when file templates are absent."""
+        return f"""
+Ты формируешь JSON-дайджест действий по email evidence.
+Верни только JSON без markdown и без пояснений.
+
+Текущая дата: {digest_date}
+Текущее время: {current_datetime}
+Trace ID: {trace_id}
+Количество evidence: {evidence_count}
+
+Схема JSON:
+{{
+  "schema_version": "3.0",
+  "prompt_version": "mvp.5",
+  "digest_date": "{digest_date}",
+  "trace_id": "{trace_id}",
+  "timezone": "America/Sao_Paulo",
+  "my_actions": [],
+  "others_actions": [],
+  "deadlines_meetings": [],
+  "risks_blockers": [],
+  "fyi": []
+}}
+
+Используй только evidence_id из входных данных. Не выдумывай новые идентификаторы.
+
+Evidence:
+{evidence_text}
+""".strip()
 
     def _parse_enhanced_response(self, response_text) -> Dict[str, Any]:
         """

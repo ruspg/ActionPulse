@@ -8,13 +8,12 @@ Implements two-stage processing:
 import json
 import time
 from typing import List, Dict, Any
-from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 import structlog
 from jinja2 import Environment, FileSystemLoader
 
-from digest_core.config import HierarchicalConfig
+from digest_core.config import HierarchicalConfig, PROJECT_ROOT
 from digest_core.threads.build import ConversationThread
 from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.schemas import ThreadSummary, EnhancedDigest
@@ -66,10 +65,13 @@ class HierarchicalProcessor:
             )
             return False
         
+        thread_threshold = min(self.config.threshold_threads, self.config.min_threads)
+        email_threshold = min(self.config.threshold_emails, self.config.min_emails)
+
         # Check thresholds for auto-activation
         meets_threshold = (
-            len(threads) >= self.config.threshold_threads or 
-            len(emails) >= self.config.threshold_emails
+            len(threads) >= thread_threshold or 
+            len(emails) >= email_threshold
         )
         
         if meets_threshold:
@@ -77,8 +79,8 @@ class HierarchicalProcessor:
                 "Hierarchical mode activated",
                 threads=len(threads),
                 emails=len(emails),
-                threshold_threads=self.config.threshold_threads,
-                threshold_emails=self.config.threshold_emails
+                threshold_threads=thread_threshold,
+                threshold_emails=email_threshold
             )
         
         return meets_threshold
@@ -320,13 +322,10 @@ class HierarchicalProcessor:
         
         # Categorize chunks
         for chunk in chunks:
-            is_must_include = False
-            
             # Check for user mentions
             if self.config.must_include_mentions and user_aliases:
                 chunk_text = chunk.text.lower()
                 if any(alias.lower() in chunk_text for alias in user_aliases):
-                    is_must_include = True
                     must_include_chunks.append(chunk)
                     logger.debug("Must-include: mention chunk", evidence_id=chunk.evidence_id)
                     continue
@@ -334,7 +333,6 @@ class HierarchicalProcessor:
             # Check if last update
             if self.config.must_include_last_update and chunk == last_update_chunk:
                 if chunk not in must_include_chunks:
-                    is_must_include = True
                     must_include_chunks.append(chunk)
                     logger.debug("Must-include: last update chunk", evidence_id=chunk.evidence_id)
                     continue
@@ -404,10 +402,12 @@ class HierarchicalProcessor:
             # Return empty summary
             return ThreadSummary(
                 thread_id=thread_id,
-                key_points=[],
-                actions=[],
+                summary="",
+                pending_actions=[],
                 deadlines=[],
-                risks=[]
+                who_must_act=[],
+                open_questions=[],
+                evidence_ids=[],
             )
         
         # Prepare chunks text
@@ -418,13 +418,8 @@ class HierarchicalProcessor:
             template_rel_path = get_prompt_template_path("thread_summarize.v1")
         except KeyError as exc:
             raise ValueError("Unknown thread summary prompt template: thread_summarize.v1") from exc
-        try:
-            env = Environment(loader=FileSystemLoader(Path("prompts")))
-            template = env.get_template(template_rel_path)
-        except Exception:
-            # Try relative to digest-core directory
-            env = Environment(loader=FileSystemLoader(Path("digest-core/prompts")))
-            template = env.get_template(template_rel_path)
+        env = Environment(loader=FileSystemLoader(str(PROJECT_ROOT / "prompts")))
+        template = env.get_template(template_rel_path)
         
         rendered = template.render(
             thread_id=thread_id,
@@ -692,7 +687,7 @@ class HierarchicalProcessor:
                     parts.append(f"    Quote: \"{dl.quote}\"")
             
             if summary.open_questions:
-                parts.append(f"\nOpen questions:")
+                parts.append("\nOpen questions:")
                 for q in summary.open_questions:
                     parts.append(f"  - {q}")
             
@@ -824,4 +819,3 @@ class HierarchicalProcessor:
                    deadlines=len(result["digest"].deadlines_meetings))
         
         return result["digest"]
-

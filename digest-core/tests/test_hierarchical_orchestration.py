@@ -12,14 +12,13 @@ Coverage:
 import pytest
 import time
 from datetime import datetime, timezone, timedelta
-from typing import List
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
-from digest_core.config import Config, HierarchicalConfig
+from digest_core.config import HierarchicalConfig
 from digest_core.hierarchical.processor import HierarchicalProcessor
 from digest_core.evidence.split import EvidenceChunk
 from digest_core.threads.build import ConversationThread
-from digest_core.llm.schemas import ThreadSummary, EnhancedDigest
+from digest_core.llm.schemas import ThreadSummary
 from digest_core.llm.gateway import LLMGateway
 
 
@@ -237,8 +236,8 @@ class TestSkipLLM:
         
         # Should return empty summary without calling LLM
         assert summary.thread_id == "empty_thread"
-        assert summary.key_points == []
-        assert summary.actions == []
+        assert summary.summary == ""
+        assert summary.pending_actions == []
         
         # LLM should not be called
         mock_llm_gateway._make_request_with_retry.assert_not_called()
@@ -246,7 +245,7 @@ class TestSkipLLM:
     def test_no_skip_when_disabled(self, mock_llm_gateway):
         """Test that LLM is not skipped when optimization is disabled."""
         config = HierarchicalConfig(skip_llm_if_no_evidence=False)
-        processor = HierarchicalProcessor(config, mock_llm_gateway)
+        HierarchicalProcessor(config, mock_llm_gateway)
         
         # This would normally call LLM even with empty chunks
         # (In real scenario, would raise error or handle gracefully)
@@ -296,10 +295,11 @@ class TestMergePolicy:
         summary = ThreadSummary(
             thread_id="thread1",
             summary="Test thread summary",
-            key_points=["Point 1"],
-            actions=[],
+            pending_actions=[],
             deadlines=[],
-            risks=[]
+            who_must_act=[],
+            open_questions=[],
+            evidence_ids=[]
         )
         
         # Create chunks
@@ -344,8 +344,10 @@ class TestMailExplosion:
         for thread_idx in range(100):
             thread = ConversationThread(
                 conversation_id=f"thread{thread_idx}",
-                subject=f"Thread {thread_idx}",
-                messages=[]
+                messages=[],
+                latest_message_time=now,
+                participant_count=1,
+                message_count=5,
             )
             threads.append(thread)
             
@@ -481,4 +483,3 @@ class TestF1Preservation:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

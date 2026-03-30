@@ -272,16 +272,20 @@ class DigestRanker:
         # Check exact match
         if sender_lower in self.important_senders:
             return 1.0
+
+        for important in self.important_senders:
+            if important.endswith("@") and important in sender_lower:
+                return 0.7
         
         # Check domain match
         if '@' in sender_lower:
             domain = sender_lower.split('@')[1]
             for important in self.important_senders:
-                if '@' in important:
-                    important_domain = important.split('@')[1]
+                if important.startswith("@"):
+                    important_domain = important[1:]
                     if domain == important_domain:
                         return 0.8
-                elif important in domain:  # Domain keyword match
+                elif "@" not in important and important in domain:  # Domain keyword match
                     return 0.7
         
         # Default: medium importance
@@ -363,4 +367,3 @@ class DigestRanker:
                 action_count += 1
         
         return action_count / len(top_n)
-

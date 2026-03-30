@@ -2,7 +2,7 @@
 Quote and signature cleaning for email normalization.
 """
 import re
-from typing import List, Dict, Tuple, Optional
+from typing import List, Tuple
 from dataclasses import dataclass
 import structlog
 
@@ -210,7 +210,6 @@ class QuoteCleaner:
         cleaned_lines = []
         quote_state = None  # None, 'collecting_top', 'deep_quote', 'awaiting_quote_body'
         top_quote_lines = []
-        seen_quote_header = False
         max_top_quote_lines = 10
         max_top_quote_paragraphs = 2
         consecutive_empty = 0
@@ -234,7 +233,6 @@ class QuoteCleaner:
                 # Check for quote headers (On ... wrote:, От:, From:) only if not in a quote yet
                 if not is_quote_marker and quote_state is None:
                     if self.quote_header_regex.search(line):
-                        seen_quote_header = True
                         # Check if next lines have > prefix (MS Outlook style) or not (inline style)
                         # Peek ahead to see if there are > lines coming
                         has_prefixed_lines_ahead = False
@@ -371,7 +369,6 @@ class QuoteCleaner:
                             cleaned_lines.append(f'> {qline}')
                         cleaned_lines.append('')
                     quote_state = None
-                    seen_quote_header = False
                     # Don't skip this line, process it normally
                     if not is_quote_marker and line.strip():
                         cleaned_lines.append(line)
@@ -416,7 +413,6 @@ class QuoteCleaner:
                     
                     # Longer line without metadata - exit quote
                     quote_state = None
-                    seen_quote_header = False
                     if line.strip():
                         cleaned_lines.append(line)
                 i += 1
@@ -570,138 +566,148 @@ class QuoteCleaner:
     
     def _remove_disclaimers(self, text: str, offset: int) -> Tuple[str, int]:
         """Remove disclaimer blocks and track spans."""
-        cleaned = text
-        
-        for match in self.disclaimer_regex.finditer(text):
-            start, end = match.span()
-            removed_content = match.group()
-            
-            # Check safety limit
+        lines = text.splitlines(keepends=True)
+
+        for idx, line in enumerate(lines):
+            if not self.disclaimer_regex.search(line.strip()):
+                continue
+
+            start_idx = idx
+            if idx > 0 and lines[idx - 1].strip() in {"---", "--"}:
+                start_idx = idx - 1
+
+            removed_content = "".join(lines[start_idx:])
             if self.config and len(removed_content) > self.config.max_quote_removal_length:
                 logger.warning("Disclaimer block too large, skipping", size=len(removed_content))
                 continue
-            
-            # Record removed span
-            span = RemovedSpan(
-                type="disclaimer",
-                start=start,
-                end=end,
-                content=removed_content[:200],
-                confidence=0.9
+
+            start = sum(len(current) for current in lines[:start_idx])
+            end = start + len(removed_content)
+            self.removed_spans.append(
+                RemovedSpan(
+                    type="disclaimer",
+                    start=start,
+                    end=end,
+                    content=removed_content[:200],
+                    confidence=0.9,
+                )
             )
-            self.removed_spans.append(span)
-            
-            # Remove from text
-            cleaned = cleaned.replace(removed_content, '', 1)
-        
-        return cleaned, offset
+            cleaned = "".join(lines[:start_idx]).rstrip()
+            return cleaned, offset
+
+        return text, offset
     
     def _remove_signatures(self, text: str, offset: int) -> Tuple[str, int]:
         """Remove signature blocks and track spans."""
-        cleaned = text
-        
-        for match in self.signature_regex.finditer(text):
-            start, end = match.span()
-            removed_content = match.group()
-            
-            # Record removed span
-            span = RemovedSpan(
+        lines = text.splitlines(keepends=True)
+        signature_start = None
+
+        for idx, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped == "--" or self.signature_regex.search(stripped):
+                signature_start = idx
+                break
+
+        if signature_start is None:
+            return text, offset
+
+        removed_content = "".join(lines[signature_start:])
+        start = sum(len(current) for current in lines[:signature_start])
+        end = start + len(removed_content)
+        self.removed_spans.append(
+            RemovedSpan(
                 type="signature",
                 start=start,
                 end=end,
-                content=removed_content[:100],
-                confidence=0.85
+                content=removed_content[:200],
+                confidence=0.85,
             )
-            self.removed_spans.append(span)
-            
-            # Remove from text
-            cleaned = cleaned.replace(removed_content, '', 1)
-        
+        )
+
+        cleaned = "".join(lines[:signature_start]).rstrip()
         return cleaned, offset
     
     def _remove_quotes_with_spans(self, text: str, offset: int) -> Tuple[str, int]:
-        """Remove quoted blocks and track spans (preserves top quote if configured)."""
-        # Use existing _remove_quotes_recursive but track spans
-        lines = text.split('\n')
-        cleaned_lines = []
-        current_line_num = 0
-        in_quote = False
-        quote_start_line = 0
-        
-        for i, line in enumerate(lines):
-            quote_prefix_count = len(line) - len(line.lstrip('>'))
-            
-            # Check if this line is a quote
-            if quote_prefix_count > 0 or self.quote_regex.search(line):
-                if not in_quote:
-                    in_quote = True
-                    quote_start_line = i
-            else:
-                # End of quote block
-                if in_quote:
-                    # Record the quote span
-                    quote_lines = lines[quote_start_line:i]
-                    quote_content = '\n'.join(quote_lines)
-                    
-                    # Calculate character offset
-                    chars_before = sum(len(l) + 1 for l in lines[:quote_start_line])  # +1 for \n
-                    chars_quote = len(quote_content)
-                    
-                    # Check if we should keep top quote head
-                    if self.keep_top_quote_head and quote_start_line < 10:  # Top of email
-                        # Keep first 1-2 paragraphs
-                        para_count = quote_content.count('\n\n') + 1
-                        if para_count <= (self.config.max_top_quote_paragraphs if self.config else 2):
-                            # Keep this quote
-                            cleaned_lines.extend(quote_lines)
-                            in_quote = False
-                            continue
-                    
-                    # Remove quote
-                    span = RemovedSpan(
-                        type="quoted",
-                        start=chars_before,
-                        end=chars_before + chars_quote,
-                        content=quote_content[:200],
-                        confidence=0.88
-                    )
-                    self.removed_spans.append(span)
-                    in_quote = False
-                    
-                # Not in quote, keep line
-                cleaned_lines.append(line)
-        
-        return '\n'.join(cleaned_lines), offset
+        """Remove trailing quoted blocks starting from the first quote/header marker."""
+        lines = text.splitlines(keepends=True)
+        quote_start = None
+
+        for idx, line in enumerate(lines):
+            stripped = line.lstrip()
+            if (
+                stripped.startswith(">")
+                or re.match(
+                    r"^(-----Original Message-----|-----Переадресованное сообщение-----|----- Переадресованное сообщение -----)$",
+                    stripped,
+                    re.IGNORECASE,
+                )
+                or self.quote_header_regex.search(stripped)
+            ):
+                quote_start = idx
+                break
+
+        if quote_start is None:
+            return text, offset
+
+        removed_content = "".join(lines[quote_start:])
+        if self.config and len(removed_content) > self.config.max_quote_removal_length:
+            logger.warning("Quoted block too large, skipping", size=len(removed_content))
+            return text, offset
+
+        start = sum(len(current) for current in lines[:quote_start])
+        end = start + len(removed_content)
+        self.removed_spans.append(
+            RemovedSpan(
+                type="quoted",
+                start=start,
+                end=end,
+                content=removed_content[:200],
+                confidence=0.88,
+            )
+        )
+
+        cleaned = "".join(lines[:quote_start]).rstrip()
+        return cleaned, offset
     
     def _remove_blacklist_patterns(self, text: str, offset: int) -> Tuple[str, int]:
         """Remove blacklisted patterns from config."""
-        cleaned = text
-        
         if not self.config or not self.config.blacklist_patterns:
-            return cleaned, offset
-        
-        for pattern in self.config.blacklist_patterns:
-            try:
-                regex = re.compile(pattern, re.IGNORECASE)
-                for match in regex.finditer(text):
-                    start, end = match.span()
-                    removed_content = match.group()
-                    
-                    span = RemovedSpan(
-                        type="blacklist",
-                        start=start,
-                        end=end,
-                        content=removed_content[:100],
-                        confidence=0.92
-                    )
-                    self.removed_spans.append(span)
-                    
-                    cleaned = cleaned.replace(removed_content, '', 1)
-            except re.error as e:
-                logger.error("Invalid blacklist pattern", pattern=pattern, error=str(e))
-                continue
-        
-        return cleaned, offset
+            return text, offset
+
+        lines = text.splitlines(keepends=True)
+        removed_any = False
+        kept_lines = []
+
+        for idx, line in enumerate(lines):
+            remove_line = False
+            for pattern in self.config.blacklist_patterns:
+                try:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        start = sum(len(current) for current in lines[:idx])
+                        end = start + len(line)
+                        self.removed_spans.append(
+                            RemovedSpan(
+                                type="blacklist",
+                                start=start,
+                                end=end,
+                                content=line[:100],
+                                confidence=0.92,
+                            )
+                        )
+                        remove_line = True
+                        removed_any = True
+                        break
+                except re.error as e:
+                    logger.error("Invalid blacklist pattern", pattern=pattern, error=str(e))
+            if not remove_line:
+                kept_lines.append(line)
+
+        if not removed_any:
+            return text, offset
+
+        return "".join(kept_lines).rstrip(), offset
     
     def get_removed_spans(self) -> List[RemovedSpan]:
         """Get list of removed spans from last clean_email_body() call."""

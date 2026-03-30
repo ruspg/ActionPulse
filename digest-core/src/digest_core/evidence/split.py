@@ -3,7 +3,8 @@ Evidence splitting for LLM processing.
 """
 import re as _stdre
 import uuid
-from typing import List, NamedTuple, Dict, Any
+from dataclasses import dataclass, field
+from typing import List, Dict, Any
 import structlog
 
 from digest_core.threads.build import ConversationThread
@@ -41,18 +42,88 @@ CAPS_HEADER_PATTERN = _get_caps_cyrillic_pattern()
 logger = structlog.get_logger()
 
 
-class EvidenceChunk(NamedTuple):
-    """A chunk of evidence for LLM processing."""
+@dataclass
+class EvidenceChunk:
+    """A chunk of evidence for LLM processing.
+
+    The model keeps a small back-compat surface for older tests and downstream
+    consumers that still expect legacy fields such as `thread_id`, `timestamp`,
+    `sender`, `chunk_idx`, and `total_chunks`.
+    """
+
     evidence_id: str
-    conversation_id: str
-    content: str
-    source_ref: Dict[str, Any]
-    token_count: int
-    priority_score: float
-    message_metadata: Dict[str, Any]  # from, to, cc, subject, received_at, importance, flag, attachments
-    addressed_to_me: bool
-    user_aliases_matched: List[str]
-    signals: Dict[str, Any]  # action_verbs, dates, contains_question, sender_rank, attachments
+    conversation_id: str = ""
+    content: str = ""
+    text: str = ""
+    source_ref: Dict[str, Any] = field(default_factory=dict)
+    msg_id: str = ""
+    token_count: int = 0
+    priority_score: float = 0.0
+    message_metadata: Dict[str, Any] = field(default_factory=dict)
+    addressed_to_me: bool = False
+    user_aliases_matched: List[str] = field(default_factory=list)
+    signals: Dict[str, Any] = field(default_factory=dict)
+    chunk_idx: int = 0
+    total_chunks: int = 1
+    timestamp: str = ""
+    sender: str = ""
+    thread_id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.content and self.text:
+            self.content = self.text
+
+        if not self.text:
+            self.text = self.content
+
+        if not self.msg_id:
+            self.msg_id = str(self.source_ref.get("msg_id", ""))
+
+        if self.msg_id and not self.source_ref.get("msg_id"):
+            self.source_ref["msg_id"] = self.msg_id
+
+        if not self.conversation_id:
+            self.conversation_id = (
+                self.source_ref.get("conversation_id")
+                or self.thread_id
+                or self.source_ref.get("thread_id", "")
+            )
+
+        if not self.thread_id:
+            self.thread_id = self.conversation_id
+
+        if not self.timestamp:
+            self.timestamp = str(self.message_metadata.get("received_at", ""))
+
+        if not self.sender:
+            self.sender = str(self.message_metadata.get("from", ""))
+
+        if self.total_chunks < 1:
+            self.total_chunks = 1
+
+    def _replace(self, **changes: Any) -> "EvidenceChunk":
+        """NamedTuple-style compatibility helper used by older selector code."""
+        payload = {
+            "evidence_id": self.evidence_id,
+            "conversation_id": self.conversation_id,
+            "content": self.content,
+            "text": self.text,
+            "source_ref": dict(self.source_ref),
+            "msg_id": self.msg_id,
+            "token_count": self.token_count,
+            "priority_score": self.priority_score,
+            "message_metadata": dict(self.message_metadata),
+            "addressed_to_me": self.addressed_to_me,
+            "user_aliases_matched": list(self.user_aliases_matched),
+            "signals": dict(self.signals),
+            "chunk_idx": self.chunk_idx,
+            "total_chunks": self.total_chunks,
+            "timestamp": self.timestamp,
+            "sender": self.sender,
+            "thread_id": self.thread_id,
+        }
+        payload.update(changes)
+        return EvidenceChunk(**payload)
 
 
 class EvidenceSplitter:
@@ -165,9 +236,6 @@ class EvidenceSplitter:
         
         max_chunks_for_message = base_max
         
-        # Detect structural breaks for better segmentation
-        structural_breaks = self._detect_structural_breaks(content)
-        
         # Split by paragraphs first (but respect structural breaks)
         paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
         
@@ -214,6 +282,9 @@ class EvidenceSplitter:
                 current_chunk, conversation_id, message, message_index, chunk_count
             )
             chunks.append(chunk)
+
+        for chunk in chunks:
+            chunk.total_chunks = len(chunks)
         
         return chunks
     
@@ -262,6 +333,9 @@ class EvidenceSplitter:
                 current_chunk, conversation_id, message, message_index, chunk_count
             )
             chunks.append(chunk)
+
+        for chunk in chunks:
+            chunk.total_chunks = len(chunks)
         
         return chunks
     
@@ -323,13 +397,19 @@ class EvidenceSplitter:
             evidence_id=evidence_id,
             conversation_id=conversation_id,
             content=content,
+            text=content,
             source_ref=source_ref,
+            msg_id=message.msg_id,
             token_count=token_count,
             priority_score=priority_score,
             message_metadata=message_metadata,
             addressed_to_me=addressed_to_me,
             user_aliases_matched=user_aliases_matched,
-            signals=chunk_signals
+            signals=chunk_signals,
+            chunk_idx=chunk_index,
+            timestamp=message_metadata["received_at"],
+            sender=message.sender_email,
+            thread_id=conversation_id,
         )
     
     def _calculate_priority_score(self, content: str, message) -> float:

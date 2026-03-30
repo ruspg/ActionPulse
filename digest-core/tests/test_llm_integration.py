@@ -2,14 +2,11 @@
 Integration test with mock LLM Gateway.
 """
 import pytest
-import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+import os
+from unittest.mock import patch
 
-from digest_core.config import Config, LLMConfig
+from digest_core.config import LLMConfig
 from digest_core.llm.gateway import LLMGateway
-from digest_core.llm.schemas import Digest
 from digest_core.evidence.split import EvidenceChunk
 from tests.mock_llm_gateway import MockLLMGateway, create_mock_llm_config
 
@@ -25,8 +22,7 @@ class TestLLMIntegration:
         # Create mock config
         self.mock_config = LLMConfig(**create_mock_llm_config(port=8080))
         
-        # Mock the get_token method using patch
-        self.token_patcher = patch.object(self.mock_config, 'get_token', return_value="mock-token")
+        self.token_patcher = patch.dict(os.environ, {"LLM_TOKEN": "mock-token"})
         self.token_patcher.start()
     
     def teardown_method(self):
@@ -38,8 +34,8 @@ class TestLLMIntegration:
         """Test LLM Gateway health check."""
         from digest_core.observability.healthz import HealthCheckHandler
         
-        # Create a mock handler
-        handler = HealthCheckHandler(None, None, llm_config=self.mock_config)
+        handler = object.__new__(HealthCheckHandler)
+        handler.llm_config = self.mock_config
         
         # Test health check
         result = handler._check_llm_gateway()
@@ -105,7 +101,7 @@ class TestLLMIntegration:
         assert "evidence_id" in item
         assert "confidence" in item
         assert "source_ref" in item
-        assert item["evidence_id"] == "ev-mock-001"  # Mock response
+        assert item["evidence_id"] == "ev-001"
     
     def test_llm_empty_response(self):
         """Test LLM response with no actionable content."""
@@ -180,7 +176,7 @@ class TestLLMIntegration:
         prompt_template = "Test prompt."
         
         # Make request
-        result = llm_gateway.extract_actions(
+        llm_gateway.extract_actions(
             evidence=evidence,
             prompt_template=prompt_template,
             trace_id="test-trace-004"
