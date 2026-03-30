@@ -34,9 +34,7 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Run ingest+normalize only, skip LLM/assemble"
     ),
-    force: bool = typer.Option(
-        False, "--force", help="Bypass the T-48h idempotency check"
-    ),
+    force: bool = typer.Option(False, "--force", help="Bypass the T-48h idempotency check"),
     dump_ingest: str = typer.Option(
         None, "--dump-ingest", help="Write normalized ingest snapshot to JSON"
     ),
@@ -45,9 +43,7 @@ def run(
         "--replay-ingest",
         help="Replay a normalized ingest snapshot instead of EWS",
     ),
-    record_llm: str = typer.Option(
-        None, "--record-llm", help="Record LLM responses to JSON file"
-    ),
+    record_llm: str = typer.Option(None, "--record-llm", help="Record LLM responses to JSON file"),
     replay_llm: str = typer.Option(
         None, "--replay-llm", help="Replay LLM responses from a recorded JSON file"
     ),
@@ -156,9 +152,7 @@ def diagnose():
         collect_script = script_dir / "collect_diagnostics.sh"
         if collect_script.exists():
             typer.echo("Collecting comprehensive diagnostics...")
-            result = subprocess.run(
-                [str(collect_script)], capture_output=True, text=True
-            )
+            result = subprocess.run([str(collect_script)], capture_output=True, text=True)
             typer.echo(result.stdout)
             if result.stderr:
                 typer.echo(result.stderr, err=True)
@@ -207,15 +201,11 @@ def mm_ping(
 
 @app.command("export-diagnostics")
 def export_diagnostics_command(
-    trace_id: str = typer.Option(
-        None, "--trace-id", help="Trace ID of the run to export"
-    ),
+    trace_id: str = typer.Option(None, "--trace-id", help="Trace ID of the run to export"),
     out: str = typer.Option(
         ..., "--out", help="Directory where the diagnostic bundle will be written"
     ),
-    date: str = typer.Option(
-        None, "--date", help="Digest date to export if trace ID is unknown"
-    ),
+    date: str = typer.Option(None, "--date", help="Digest date to export if trace ID is unknown"),
     send_mm: bool = typer.Option(
         False, "--send-mm", help="Send a Mattermost notification for the bundle"
     ),
@@ -238,9 +228,7 @@ def export_diagnostics_command(
 
 @app.command("eval-prompt")
 def eval_prompt(
-    digest: str = typer.Option(
-        ..., "--digest", help="Path to digest-YYYY-MM-DD.json to evaluate"
-    ),
+    digest: str = typer.Option(..., "--digest", help="Path to digest-YYYY-MM-DD.json to evaluate"),
     ingest_snapshot: str = typer.Option(
         None,
         "--ingest-snapshot",

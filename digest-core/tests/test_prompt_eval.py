@@ -185,9 +185,7 @@ class TestConfidenceCalibration:
         }
         report = evaluate_digest(digest)
         errors = [
-            i
-            for i in report.issues
-            if i.category == "confidence" and i.severity == ISSUE_ERROR
+            i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_ERROR
         ]
         assert len(errors) == 1
 
@@ -212,9 +210,7 @@ class TestConfidenceCalibration:
         }
         report = evaluate_digest(digest)
         warns = [
-            i
-            for i in report.issues
-            if i.category == "confidence" and i.severity == ISSUE_WARN
+            i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_WARN
         ]
         assert len(warns) == 1
         assert "false positive" in warns[0].message
@@ -239,9 +235,7 @@ class TestConfidenceCalibration:
         }
         report = evaluate_digest(digest)
         errors = [
-            i
-            for i in report.issues
-            if i.category == "confidence" and i.severity == ISSUE_ERROR
+            i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_ERROR
         ]
         assert len(errors) == 1
 
@@ -722,9 +716,7 @@ Actual prompt content here.
         if not prompt_path.exists():
             pytest.skip("Prompt file not found")
         versions = parse_prompt_changelog(prompt_path)
-        assert (
-            len(versions) >= 1
-        ), "extract_actions.v1 must have at least one changelog entry"
+        assert len(versions) >= 1, "extract_actions.v1 must have at least one changelog entry"
 
 
 # ── CLI integration smoke test ────────────────────────────────────────────────

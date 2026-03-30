@@ -113,9 +113,7 @@ class EvalReport:
     def items_without_errors(self) -> int:
         """Number of items that have zero error-level issues."""
         error_items = {
-            i.item_title
-            for i in self.issues
-            if i.severity == ISSUE_ERROR and i.item_title
+            i.item_title for i in self.issues if i.severity == ISSUE_ERROR and i.item_title
         }
         return max(0, self.total_items - len(error_items))
 
@@ -151,9 +149,7 @@ class EvalReport:
 
         # section breakdown
         if self.section_counts:
-            parts = ", ".join(
-                f"{title} ({count})" for title, count in self.section_counts.items()
-            )
+            parts = ", ".join(f"{title} ({count})" for title, count in self.section_counts.items())
             lines.append(f"Sections: {parts}")
 
         if self.evidence_ids_checked:
@@ -233,9 +229,7 @@ def evaluate_digest(
         return report
 
     if not isinstance(sections, list):
-        report.issues.append(
-            EvalIssue(ISSUE_ERROR, "structure", "'sections' field is not a list")
-        )
+        report.issues.append(EvalIssue(ISSUE_ERROR, "structure", "'sections' field is not a list"))
         _compute_score(report)
         return report
 
