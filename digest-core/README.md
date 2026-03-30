@@ -279,7 +279,7 @@ done
 python3.11 -m digest_core.cli run --dry-run
 
 # Test with different model
-python3.11 -m digest_core.cli run --model "qwen3.5-397b-a17b" --dry-run
+python3.11 -m digest_core.cli run --model "qwen35-397b-a17b" --dry-run
 ```
 
 **Multiple Mailboxes (if configured):**

@@ -524,7 +524,7 @@ collect_llm_config() {
     print_success "Token captured"
     
     # Model name
-    prompt_with_default "Model name" "qwen3.5-397b-a17b" "LLM_MODEL"
+    prompt_with_default "Model name" "qwen35-397b-a17b" "LLM_MODEL"
 
     # Timeout
     while true; do

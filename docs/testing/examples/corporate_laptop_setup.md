@@ -237,7 +237,7 @@ ews:
 
 llm:
   endpoint: "https://llm-gw.company.com/api/v1/chat"
-  model: "qwen3.5-397b-a17b"
+  model: "qwen35-397b-a17b"
   timeout: 600  # 10 минут для корпоративных сетей
   headers:
     Authorization: "Bearer ${LLM_TOKEN}"
