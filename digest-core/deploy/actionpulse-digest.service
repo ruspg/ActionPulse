@@ -1,0 +1,31 @@
+[Unit]
+Description=ActionPulse daily email digest
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=%i
+WorkingDirectory=%h/ActionPulse/digest-core
+ExecStart=%h/ActionPulse/digest-core/.venv/bin/python -m digest_core.cli run --from-date today --sources ews
+
+# Environment: secrets loaded from drop-in or EnvironmentFile
+EnvironmentFile=-%h/.config/actionpulse/env
+
+# Logging: stdout/stderr → journal (use journalctl -u actionpulse-digest@user)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=actionpulse
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/ActionPulse/digest-core/out %h/ActionPulse/digest-core/.state
+PrivateTmp=true
+
+# Timeouts
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

@@ -691,10 +691,17 @@ digest-core/
 ├── configs/
 │   ├── config.example.yaml        # Reference config (committed)
 │   └── config.yaml                # User config (gitignored)
+├── deploy/
+│   ├── actionpulse-digest.service # systemd user service unit
+│   ├── actionpulse-digest.timer   # systemd timer (daily 08:00)
+│   ├── crontab.example            # cron alternative
+│   ├── env.example                # Environment variables template
+│   └── install-systemd.sh         # One-command systemd install
 ├── docker/
 │   └── Dockerfile                 # Multi-stage, non-root (UID 1001)
 ├── docs/
 │   ├── ARCHITECTURE.md            # THIS FILE
+│   ├── DEPLOYMENT.md              # Deployment guide (CI, cron, systemd, Docker)
 │   └── PHASE0_PROMPT.md           # Historical Phase 0 backlog prompt (snapshot)
 ├── prompts/
 │   ├── extract_actions.v1.txt     # RU extraction prompt (plain text)
@@ -959,8 +966,8 @@ digest-core/
 |------|-------|----------|
 | Daily prompt iteration (run → read MM DM → fix prompt → repeat) | ongoing | P0 |
 | Migrate MM delivery to Bot API (prep for slash commands) | 4h | P1 |
-| CI pipeline: GitHub Actions (lint + test + docker build) | 4h | P1 |
-| Cron/systemd unit for daily schedule | 3h | P1 |
+| ~~CI pipeline: GitHub Actions (lint + test + docker build)~~ | 4h | P1 | **Done** — `.github/workflows/ci.yml` |
+| ~~Cron/systemd unit for daily schedule~~ | 3h | P1 | **Done** — `deploy/` (systemd + cron) |
 | Docker Compose for production deployment | 2h | P2 |
 | Cost budget enforcement (fail if tokens > limit) | 2h | P2 |
 | Feedback: log emoji reactions (👍/👎) via MM websocket | 4h | P2 |
