@@ -391,7 +391,7 @@ class TestGoldSetValidation:
         recall = tp / (tp + fn) if (tp + fn) > 0 else 0
         f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
         
-        print(f"\n=== Gold Set Validation ===")
+        print("\n=== Gold Set Validation ===")
         print(f"True Positives: {tp}")
         print(f"False Positives: {fp}")
         print(f"True Negatives: {tn}")
@@ -399,7 +399,7 @@ class TestGoldSetValidation:
         print(f"Precision: {precision:.3f}")
         print(f"Recall: {recall:.3f}")
         print(f"F1 Score: {f1:.3f}")
-        print(f"===========================\n")
+        print("===========================\n")
         
         # DoD requirements: P >= 0.85, R >= 0.80
         assert precision >= 0.85, f"Precision {precision:.3f} below target 0.85"

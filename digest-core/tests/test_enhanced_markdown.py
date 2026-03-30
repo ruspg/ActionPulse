@@ -1,7 +1,6 @@
 """
 Tests for enhanced markdown assembler with v2 and v3 schemas.
 """
-import pytest
 from pathlib import Path
 import tempfile
 from digest_core.llm.schemas import (

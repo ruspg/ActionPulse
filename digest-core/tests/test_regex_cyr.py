@@ -81,8 +81,8 @@ def test_no_bad_character_range_error():
     for text in problematic_texts:
         # Should not raise any errors
         try:
-            matches = signals.CYRILLIC_WORD.findall(text)
-            dates = signals.extract_dates(text)
+            signals.CYRILLIC_WORD.findall(text)
+            signals.extract_dates(text)
             # If we got here, no exceptions were raised
             assert True
         except Exception as e:

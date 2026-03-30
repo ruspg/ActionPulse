@@ -8,7 +8,7 @@ Enhanced with:
 - Message-ID/In-Reply-To/References handling
 """
 from collections import defaultdict
-from typing import List, NamedTuple, Dict, Set
+from typing import List, NamedTuple, Dict
 from datetime import datetime
 import hashlib
 import structlog

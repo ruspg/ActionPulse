@@ -1,7 +1,6 @@
 """
 Tests for LLM degradation fallback.
 """
-import pytest
 from digest_core.llm.degrade import extractive_fallback
 from digest_core.evidence.split import EvidenceChunk
 

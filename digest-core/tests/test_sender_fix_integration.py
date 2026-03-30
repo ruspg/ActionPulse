@@ -1,7 +1,6 @@
 """
 Simple integration test to verify the sender fix works end-to-end.
 """
-import pytest
 from datetime import datetime, timezone
 from digest_core.ingest.ews import NormalizedMessage
 from digest_core.evidence.actions import ActionMentionExtractor

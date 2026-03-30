@@ -3,7 +3,7 @@ Tests for token counter initialization in LLM gateway.
 Ensures no UnboundLocalError when usage data is missing.
 """
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 import httpx
 
 

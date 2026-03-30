@@ -369,7 +369,7 @@ class TestMetricsIntegration:
         html = None  # Will cause AttributeError
         try:
             text, success = normalizer.html_to_text(html)
-        except:
+        except Exception:
             pass
         
         # Note: With current implementation, None is handled gracefully

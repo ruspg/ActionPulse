@@ -2,7 +2,6 @@
 Tests for fallback to stdlib re when regex module is unavailable.
 """
 import sys
-import pytest
 
 
 def test_fallback_when_regex_unavailable(monkeypatch):

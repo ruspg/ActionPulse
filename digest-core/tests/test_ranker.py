@@ -10,7 +10,7 @@ Coverage:
 import pytest
 from datetime import datetime, timedelta, timezone
 from digest_core.select.ranker import DigestRanker, RankingFeatures
-from digest_core.llm.schemas import ActionItem, DeadlineMeeting, ExtractedActionItem, Citation
+from digest_core.llm.schemas import ActionItem, DeadlineMeeting, ExtractedActionItem
 from digest_core.evidence.split import EvidenceChunk
 
 

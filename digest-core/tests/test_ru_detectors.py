@@ -1,7 +1,6 @@
 """
 Tests for Russian language detectors.
 """
-import pytest
 from digest_core.evidence.signals import extract_dates, extract_action_verbs
 
 

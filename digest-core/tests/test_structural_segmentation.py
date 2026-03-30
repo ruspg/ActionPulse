@@ -1,7 +1,6 @@
 """
 Tests for structural segmentation in EvidenceSplitter.
 """
-import pytest
 from datetime import datetime, timezone
 from digest_core.evidence.split import EvidenceSplitter
 from digest_core.ingest.ews import NormalizedMessage

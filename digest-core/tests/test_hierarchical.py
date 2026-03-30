@@ -2,17 +2,15 @@
 Tests for hierarchical digest mode.
 """
 import pytest
-from datetime import datetime, timezone
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
 
 from digest_core.config import HierarchicalConfig
 from digest_core.hierarchical import HierarchicalProcessor, HierarchicalMetrics
 from digest_core.llm.schemas import ThreadSummary, ThreadAction, ThreadDeadline, EnhancedDigest
-from digest_core.threads.build import ConversationThread
 from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.gateway import LLMGateway
 
-from tests.fixtures.large_dataset import generate_large_email_dataset, get_action_thread_ids
+from tests.fixtures.large_dataset import generate_large_email_dataset
 
 
 class TestHierarchicalThresholds:
@@ -248,7 +246,6 @@ class TestLargeDatasetIntegration:
     @pytest.mark.slow
     def test_300_emails_processing(self):
         """Test processing 300+ emails activates hierarchical mode."""
-        from tests.fixtures.large_dataset import generate_large_email_dataset
         from digest_core.threads.build import ThreadBuilder
         
         # Generate dataset

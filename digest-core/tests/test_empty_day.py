@@ -5,10 +5,7 @@ import pytest
 import json
 import tempfile
 from pathlib import Path
-from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
 
-from digest_core.config import Config
 from digest_core.llm.schemas import Digest, Section, Item
 from digest_core.assemble.jsonout import JSONAssembler
 from digest_core.assemble.markdown import MarkdownAssembler

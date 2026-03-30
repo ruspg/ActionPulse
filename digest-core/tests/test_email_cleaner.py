@@ -7,7 +7,7 @@ DoD Requirements:
 - Span tracking correctness (offset validation)
 """
 import pytest
-from digest_core.normalize.quotes import QuoteCleaner, RemovedSpan
+from digest_core.normalize.quotes import QuoteCleaner
 from digest_core.config import EmailCleanerConfig
 
 

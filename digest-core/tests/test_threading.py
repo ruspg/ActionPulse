@@ -10,7 +10,7 @@ Covers:
 import pytest
 from datetime import datetime, timezone
 from digest_core.threads.subject_normalizer import SubjectNormalizer, calculate_text_similarity
-from digest_core.threads.build import ThreadBuilder, ConversationThread
+from digest_core.threads.build import ThreadBuilder
 from digest_core.ingest.ews import NormalizedMessage
 
 
@@ -451,7 +451,7 @@ class TestThreadingStatistics:
         ]
         
         builder = ThreadBuilder()
-        threads = builder.build_threads(messages)
+        builder.build_threads(messages)
         
         stats = builder.get_stats()
         

@@ -142,12 +142,12 @@ class TestActionExtractionWithLemmatization:
         
         # Past tense
         text2 = "I checked the document."
-        actions2 = extractor.extract_mentions_actions(text2, "msg2", "sender@example.com")
+        extractor.extract_mentions_actions(text2, "msg2", "sender@example.com")
         # May or may not detect (not imperative), but should lemmatize verb
         
         # Present continuous
         text3 = "I am checking the document."
-        actions3 = extractor.extract_mentions_actions(text3, "msg3", "sender@example.com")
+        extractor.extract_mentions_actions(text3, "msg3", "sender@example.com")
         # May or may not detect (not imperative)
     
     def test_ru_verb_forms_detected(self):
@@ -211,12 +211,12 @@ class TestActionExtractionWithLemmatization:
         
         # EN custom verb
         text_en = "Please deploy the changes"
-        actions_en = extractor.extract_mentions_actions(text_en, "msg1", "sender@example.com")
+        extractor.extract_mentions_actions(text_en, "msg1", "sender@example.com")
         # Should detect due to "please" pattern or custom verb
         
         # RU custom verb
         text_ru = "Задеплой на прод"
-        actions_ru = extractor.extract_mentions_actions(text_ru, "msg2", "sender@example.com")
+        extractor.extract_mentions_actions(text_ru, "msg2", "sender@example.com")
         # Should detect with custom verb lemmatization
 
 

@@ -2,7 +2,6 @@
 Tests for strict LLM JSON validation.
 """
 import pytest
-import json
 from digest_core.llm.models import parse_llm_json, LLMResponse, minimal_json_repair
 
 

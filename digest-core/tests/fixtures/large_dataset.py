@@ -143,7 +143,7 @@ def _generate_thread(
             sender_email=f"sender{random.randint(1, 10)}@company.com",
             subject=subject,
             text_body=content,
-            to_recipients=[f"user@company.com"],
+            to_recipients=["user@company.com"],
             cc_recipients=[],
             importance="High" if has_actions or has_deadlines else "Normal",
             is_flagged=has_actions,

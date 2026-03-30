@@ -1,7 +1,6 @@
 """
 Unit tests for NormalizedMessage sender compatibility.
 """
-import pytest
 from datetime import datetime, timezone
 from digest_core.ingest.ews import NormalizedMessage
 

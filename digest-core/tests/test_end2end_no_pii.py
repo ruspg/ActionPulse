@@ -10,12 +10,11 @@ import pytest
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from digest_core.llm.gateway import LLMGateway
-from digest_core.llm.schemas import EnhancedDigest, EnhancedDigestV3, ActionItemV3
+from digest_core.llm.schemas import EnhancedDigest, EnhancedDigestV3
 from digest_core.evidence.split import EvidenceChunk
 from digest_core.assemble.markdown import MarkdownAssembler
-from digest_core.assemble.jsonout import JSONAssembler
 from digest_core.config import LLMConfig
 
 
@@ -147,7 +146,6 @@ class TestEndToEndNoPII:
         ]
         
         # Mock invalid JSON response (missing required field)
-        invalid_json_text = '{"schema_version": "3.0", "incomplete": true'  # Invalid JSON
         
         with patch.object(LLMGateway, '_make_request_with_retry') as mock_request:
             # First attempt returns invalid JSON

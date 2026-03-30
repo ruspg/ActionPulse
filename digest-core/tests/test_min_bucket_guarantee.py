@@ -6,10 +6,8 @@ Ensures that:
 - At least 1 chunk from addressed_to_me is always included (if available)
 - Deduplication is by (msg_id, start, end) only, not semantic
 """
-import pytest
 from digest_core.select.context import ContextSelector
 from digest_core.evidence.split import EvidenceChunk
-from digest_core.config import SelectionBucketsConfig
 
 
 def make_chunk(evidence_id, msg_id, start=0, end=100, priority_score=1.0,

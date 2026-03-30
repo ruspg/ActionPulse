@@ -12,7 +12,7 @@ from digest_core.evidence.signals import (
 )
 from digest_core.evidence.split import EvidenceChunk, EvidenceSplitter
 from digest_core.ingest.ews import NormalizedMessage
-from digest_core.threads.build import ThreadBuilder, ConversationThread
+from digest_core.threads.build import ConversationThread
 from digest_core.llm.gateway import LLMGateway
 from digest_core.config import LLMConfig
 

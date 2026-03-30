@@ -5,7 +5,6 @@ Ensures all datetime objects are timezone-aware and provides UTC conversion.
 """
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from typing import Optional
 from collections import defaultdict
 import time
 import structlog

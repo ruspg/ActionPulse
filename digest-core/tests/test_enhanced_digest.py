@@ -2,7 +2,6 @@
 Tests for enhanced digest v2 functionality.
 """
 import pytest
-import json
 from datetime import datetime, timezone
 from digest_core.llm.schemas import EnhancedDigest, ActionItem, DeadlineMeeting, RiskBlocker, FYIItem
 from digest_core.llm.date_utils import normalize_date_to_tz, get_current_datetime_in_tz

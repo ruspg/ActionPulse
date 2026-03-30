@@ -1,7 +1,6 @@
 """
 Tests for normalization functionality.
 """
-import pytest
 from digest_core.normalize.html import HTMLNormalizer
 from digest_core.normalize.quotes import QuoteCleaner
 

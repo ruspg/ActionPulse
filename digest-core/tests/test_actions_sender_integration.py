@@ -1,7 +1,6 @@
 """
 Integration test for actions stage with missing sender.
 """
-import pytest
 from datetime import datetime, timezone
 from digest_core.ingest.ews import NormalizedMessage
 from digest_core.evidence.actions import ActionMentionExtractor

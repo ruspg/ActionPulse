@@ -1,7 +1,6 @@
 """
 Tests for quote preservation in QuoteCleaner.
 """
-import pytest
 from digest_core.normalize.quotes import QuoteCleaner
 
 
@@ -219,7 +218,7 @@ class TestQuoteCleaningEdgeCases:
         """Test handling of empty text."""
         cleaner = QuoteCleaner(keep_top_quote_head=True)
         assert cleaner.clean_quotes('') == ''
-        assert cleaner.clean_quotes(None) == None
+        assert cleaner.clean_quotes(None) is None
     
     def test_only_quote_no_reply(self):
         """Test email that is only a quote (forward without comment)."""

@@ -71,7 +71,7 @@ def normalize_date_to_tz(
             "label": label
         }
         
-    except Exception as e:
+    except Exception:
         # Return as-is if parsing fails
         return {"normalized": date_str, "label": None}
 

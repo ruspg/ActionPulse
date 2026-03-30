@@ -1,7 +1,6 @@
 """
 Tests for hierarchical mode thresholds.
 """
-import pytest
 from digest_core.hierarchical.processor import HierarchicalProcessor
 from digest_core.config import HierarchicalConfig
 from digest_core.llm.gateway import LLMGateway
