@@ -1,0 +1,12 @@
+# ActionPulse daily digest — alternative to systemd timer
+# Edit with: crontab -e
+#
+# Runs at 08:00 Moscow time (adjust TZ or use system timezone).
+# Logs to ~/actionpulse-cron.log (rotated by size in logrotate or manually).
+#
+# Required env vars must be set in ~/.config/actionpulse/env or inline.
+
+SHELL=/bin/bash
+
+# Load secrets and run digest
+0 8 * * 1-5  . ~/.config/actionpulse/env && cd ~/ActionPulse/digest-core && .venv/bin/python -m digest_core.cli run --from-date today --sources ews >> ~/actionpulse-cron.log 2>&1
