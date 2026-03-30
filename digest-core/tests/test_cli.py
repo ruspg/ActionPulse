@@ -24,12 +24,16 @@ def test_cli_help(runner):
 
 def test_cli_run_help(runner):
     """Test CLI run command help."""
+    import re as _re
+
     result = runner.invoke(app, ["run", "--help"])
     assert result.exit_code == 0
-    assert "from-date" in result.output
-    assert "sources" in result.output
-    assert "out" in result.output
-    assert "model" in result.output
+    # Strip ANSI escape codes — Rich/Typer may wrap option names across lines
+    plain = _re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "from-date" in plain
+    assert "sources" in plain
+    assert "out" in plain
+    assert "model" in plain
 
 
 def test_cli_run_dry_run(runner):
