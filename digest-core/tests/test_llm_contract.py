@@ -8,10 +8,10 @@ def test_contract_example():
     p = pathlib.Path("examples/digest-2024-01-15.json")
     if not p.exists():
         return
-    
+
     data = json.loads(p.read_text())
     digest = Digest(**data)
-    
+
     # Verify required fields
     assert digest.schema_version == "1.0"
     assert digest.prompt_version == "extract_actions.v1"
@@ -26,9 +26,9 @@ def test_schema_version_required():
         "prompt_version": "extract_actions.v1",
         "digest_date": "2024-01-15",
         "trace_id": "test",
-        "sections": []
+        "sections": [],
     }
-    
+
     # Should use default schema_version
     digest = Digest(**data)
     assert digest.schema_version == "1.0"
@@ -41,17 +41,21 @@ def test_item_validation():
         "prompt_version": "extract_actions.v1",
         "digest_date": "2024-01-15",
         "trace_id": "test",
-        "sections": [{
-            "title": "Test Section",
-            "items": [{
-                "title": "Test Item",
-                "evidence_id": "ev-001",
-                "confidence": 0.85,
-                "source_ref": {"type": "email", "msg_id": "msg-001"}
-            }]
-        }]
+        "sections": [
+            {
+                "title": "Test Section",
+                "items": [
+                    {
+                        "title": "Test Item",
+                        "evidence_id": "ev-001",
+                        "confidence": 0.85,
+                        "source_ref": {"type": "email", "msg_id": "msg-001"},
+                    }
+                ],
+            }
+        ],
     }
-    
+
     digest = Digest(**data)
     assert len(digest.sections) == 1
     assert len(digest.sections[0].items) == 1

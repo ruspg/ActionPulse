@@ -24,17 +24,17 @@ from typing import Any, Dict, List, Optional, Set
 
 # ── Issue severity ────────────────────────────────────────────────────────────
 
-ISSUE_ERROR = "error"     # contract violation — must fix
-ISSUE_WARN = "warn"       # quality concern — should fix
-ISSUE_INFO = "info"       # informational observation
+ISSUE_ERROR = "error"  # contract violation — must fix
+ISSUE_WARN = "warn"  # quality concern — should fix
+ISSUE_INFO = "info"  # informational observation
 
 
 @dataclass
 class EvalIssue:
     """A single quality finding in the eval report."""
 
-    severity: str          # ISSUE_ERROR | ISSUE_WARN | ISSUE_INFO
-    category: str          # e.g. "evidence_id", "confidence", "section_assignment"
+    severity: str  # ISSUE_ERROR | ISSUE_WARN | ISSUE_INFO
+    category: str  # e.g. "evidence_id", "confidence", "section_assignment"
     message: str
     item_title: Optional[str] = None
     section_title: Optional[str] = None
@@ -65,11 +65,12 @@ SECTION_FYI = "К сведению"
 KNOWN_SECTIONS = {SECTION_ACTIONS, SECTION_URGENT, SECTION_FYI}
 
 # Confidence thresholds per taxonomy (ARCHITECTURE.md §9.1)
-CONF_MIN_ACCEPTABLE = 0.50       # prompt should not emit below this
-CONF_WARN_ACTIONS = 0.70         # "Мои действия" items below this are suspicious
+CONF_MIN_ACCEPTABLE = 0.50  # prompt should not emit below this
+CONF_WARN_ACTIONS = 0.70  # "Мои действия" items below this are suspicious
 
 
 # ── Main evaluator ────────────────────────────────────────────────────────────
+
 
 @dataclass
 class EvalReport:
@@ -112,7 +113,8 @@ class EvalReport:
     def items_without_errors(self) -> int:
         """Number of items that have zero error-level issues."""
         error_items = {
-            i.item_title for i in self.issues
+            i.item_title
+            for i in self.issues
             if i.severity == ISSUE_ERROR and i.item_title
         }
         return max(0, self.total_items - len(error_items))
@@ -224,18 +226,16 @@ def evaluate_digest(
     # ── Top-level structural checks ───────────────────────────────────────────
 
     if "sections" not in digest:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "structure",
-            "'sections' key is missing from digest"
-        ))
+        report.issues.append(
+            EvalIssue(ISSUE_ERROR, "structure", "'sections' key is missing from digest")
+        )
         _compute_score(report)
         return report
 
     if not isinstance(sections, list):
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "structure",
-            "'sections' field is not a list"
-        ))
+        report.issues.append(
+            EvalIssue(ISSUE_ERROR, "structure", "'sections' field is not a list")
+        )
         _compute_score(report)
         return report
 
@@ -253,28 +253,37 @@ def evaluate_digest(
 
         # Duplicate section title
         if sec_title in seen_section_titles:
-            report.issues.append(EvalIssue(
-                ISSUE_ERROR, "section_assignment",
-                f"Duplicate section title '{sec_title}'",
-                section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_ERROR,
+                    "section_assignment",
+                    f"Duplicate section title '{sec_title}'",
+                    section_title=sec_title,
+                )
+            )
         seen_section_titles.add(sec_title)
 
         # Unknown section title
         if sec_title not in KNOWN_SECTIONS:
-            report.issues.append(EvalIssue(
-                ISSUE_WARN, "section_assignment",
-                f"Unknown section title '{sec_title}' (not in taxonomy)",
-                section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_WARN,
+                    "section_assignment",
+                    f"Unknown section title '{sec_title}' (not in taxonomy)",
+                    section_title=sec_title,
+                )
+            )
 
         # Empty section (should not appear per prompt rules)
         if len(items) == 0:
-            report.issues.append(EvalIssue(
-                ISSUE_WARN, "section_assignment",
-                "Empty section — prompt rules say not to include empty sections",
-                section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_WARN,
+                    "section_assignment",
+                    "Empty section — prompt rules say not to include empty sections",
+                    section_title=sec_title,
+                )
+            )
 
         for item in items:
             _check_item(item, sec_title, evidence_ids, all_item_titles, report)
@@ -283,10 +292,13 @@ def evaluate_digest(
 
     # Totally empty digest with no sections is valid but worth noting
     if not sections:
-        report.issues.append(EvalIssue(
-            ISSUE_INFO, "structure",
-            "Digest has no sections (empty result — valid if no actionable evidence)"
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_INFO,
+                "structure",
+                "Digest has no sections (empty result — valid if no actionable evidence)",
+            )
+        )
 
     _compute_score(report)
     return report
@@ -307,92 +319,140 @@ def _check_item(
 
     # ── evidence_id ───────────────────────────────────────────────────────────
     if not evidence_id:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "evidence_id",
-            "Item missing evidence_id",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "evidence_id",
+                "Item missing evidence_id",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     elif evidence_ids is not None and evidence_id not in evidence_ids:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "evidence_id",
-            f"evidence_id '{evidence_id}' not found in ingest evidence list",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "evidence_id",
+                f"evidence_id '{evidence_id}' not found in ingest evidence list",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
 
     # ── source_ref ────────────────────────────────────────────────────────────
     if not source_ref:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "source_ref",
-            "Item missing source_ref",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "source_ref",
+                "Item missing source_ref",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     elif not isinstance(source_ref, dict):
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "source_ref",
-            "source_ref is not a dict",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "source_ref",
+                "source_ref is not a dict",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     elif "type" not in source_ref:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "source_ref",
-            "source_ref missing required 'type' field",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "source_ref",
+                "source_ref missing required 'type' field",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
 
     # ── confidence ────────────────────────────────────────────────────────────
     if confidence is None:
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "confidence",
-            "Item missing confidence field",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "confidence",
+                "Item missing confidence field",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     elif not isinstance(confidence, (int, float)):
-        report.issues.append(EvalIssue(
-            ISSUE_ERROR, "confidence",
-            f"confidence is not a number: {confidence!r}",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_ERROR,
+                "confidence",
+                f"confidence is not a number: {confidence!r}",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     else:
         if not (0.0 <= confidence <= 1.0):
-            report.issues.append(EvalIssue(
-                ISSUE_ERROR, "confidence",
-                f"confidence {confidence:.2f} out of range [0, 1]",
-                item_title=title, section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_ERROR,
+                    "confidence",
+                    f"confidence {confidence:.2f} out of range [0, 1]",
+                    item_title=title,
+                    section_title=sec_title,
+                )
+            )
         elif confidence < CONF_MIN_ACCEPTABLE:
-            report.issues.append(EvalIssue(
-                ISSUE_WARN, "confidence",
-                f"confidence {confidence:.2f} below min acceptable ({CONF_MIN_ACCEPTABLE}) "
-                "— prompt rules say to omit such items",
-                item_title=title, section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_WARN,
+                    "confidence",
+                    f"confidence {confidence:.2f} below min acceptable ({CONF_MIN_ACCEPTABLE}) "
+                    "— prompt rules say to omit such items",
+                    item_title=title,
+                    section_title=sec_title,
+                )
+            )
         elif sec_title == SECTION_ACTIONS and confidence < CONF_WARN_ACTIONS:
-            report.issues.append(EvalIssue(
-                ISSUE_WARN, "confidence",
-                f"«Мои действия» item has low confidence {confidence:.2f} "
-                f"(threshold for actionable items: {CONF_WARN_ACTIONS}) — potential false positive",
-                item_title=title, section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_WARN,
+                    "confidence",
+                    f"«Мои действия» item has low confidence {confidence:.2f} "
+                    f"(threshold for actionable items: {CONF_WARN_ACTIONS}) — potential false positive",
+                    item_title=title,
+                    section_title=sec_title,
+                )
+            )
 
     # ── Duplicate item titles ─────────────────────────────────────────────────
     title_lower = title.lower().strip()
     if title_lower in seen_titles:
-        report.issues.append(EvalIssue(
-            ISSUE_WARN, "duplicate",
-            f"Duplicate item title «{title[:60]}» appears in multiple sections or twice",
-            item_title=title, section_title=sec_title,
-        ))
+        report.issues.append(
+            EvalIssue(
+                ISSUE_WARN,
+                "duplicate",
+                f"Duplicate item title «{title[:60]}» appears in multiple sections or twice",
+                item_title=title,
+                section_title=sec_title,
+            )
+        )
     seen_titles.add(title_lower)
 
     # ── due date format ───────────────────────────────────────────────────────
     due = item.get("due")
     if due is not None and due not in ("today", "tomorrow"):
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", str(due)):
-            report.issues.append(EvalIssue(
-                ISSUE_WARN, "due_date",
-                f"due '{due}' is not YYYY-MM-DD / today / tomorrow / null",
-                item_title=title, section_title=sec_title,
-            ))
+            report.issues.append(
+                EvalIssue(
+                    ISSUE_WARN,
+                    "due_date",
+                    f"due '{due}' is not YYYY-MM-DD / today / tomorrow / null",
+                    item_title=title,
+                    section_title=sec_title,
+                )
+            )
 
 
 def _compute_score(report: EvalReport) -> None:
@@ -402,6 +462,7 @@ def _compute_score(report: EvalReport) -> None:
 
 
 # ── Convenience loaders ───────────────────────────────────────────────────────
+
 
 def evaluate_digest_file(
     digest_path: Path,

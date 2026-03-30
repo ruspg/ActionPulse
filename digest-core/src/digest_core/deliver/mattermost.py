@@ -15,7 +15,7 @@ logger = structlog.get_logger()
 
 DEFAULT_PING_TEXT = (
     "ActionPulse: проверка incoming webhook (mm-ping). "
-    "Свой текст: `mm-ping --message \"...\"`."
+    'Свой текст: `mm-ping --message "..."`.'
 )
 
 

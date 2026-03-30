@@ -29,9 +29,9 @@ from typing import List, Optional
 class PromptVersion:
     """A single entry in the prompt changelog."""
 
-    version: str     # e.g. "v1.2"
-    date: str        # YYYY-MM-DD
-    note: str        # free-form description
+    version: str  # e.g. "v1.2"
+    date: str  # YYYY-MM-DD
+    note: str  # free-form description
 
     def __str__(self) -> str:
         return f"{self.version}  {self.date}  {self.note}"
@@ -74,7 +74,7 @@ def _parse_changelog_text(text: str) -> List[PromptVersion]:
         return []
 
     end_m = _CHANGELOG_END.search(text, start_m.end())
-    block = text[start_m.end(): end_m.start()] if end_m else text[start_m.end():]
+    block = text[start_m.end() : end_m.start()] if end_m else text[start_m.end() :]
 
     return [
         PromptVersion(version=m.group(1), date=m.group(2), note=m.group(3).strip())

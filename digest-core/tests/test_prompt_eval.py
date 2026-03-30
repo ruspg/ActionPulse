@@ -59,6 +59,7 @@ GOOD_DIGEST = {
 
 # ── EvalReport: perfect digest ────────────────────────────────────────────────
 
+
 class TestEvaluateDigestGoodPath:
     def test_perfect_digest_score_100(self):
         report = evaluate_digest(GOOD_DIGEST)
@@ -91,6 +92,7 @@ class TestEvaluateDigestGoodPath:
 
 
 # ── Evidence ID validation ────────────────────────────────────────────────────
+
 
 class TestEvidenceIdValidation:
     def test_valid_evidence_ids_pass(self):
@@ -139,6 +141,7 @@ class TestEvidenceIdValidation:
 
 # ── Confidence calibration ────────────────────────────────────────────────────
 
+
 class TestConfidenceCalibration:
     def test_confidence_below_0_5_is_warn(self):
         digest = {
@@ -181,7 +184,11 @@ class TestConfidenceCalibration:
             ],
         }
         report = evaluate_digest(digest)
-        errors = [i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_ERROR]
+        errors = [
+            i
+            for i in report.issues
+            if i.category == "confidence" and i.severity == ISSUE_ERROR
+        ]
         assert len(errors) == 1
 
     def test_actions_below_0_7_is_warn(self):
@@ -204,7 +211,11 @@ class TestConfidenceCalibration:
             ],
         }
         report = evaluate_digest(digest)
-        warns = [i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_WARN]
+        warns = [
+            i
+            for i in report.issues
+            if i.category == "confidence" and i.severity == ISSUE_WARN
+        ]
         assert len(warns) == 1
         assert "false positive" in warns[0].message
 
@@ -227,11 +238,16 @@ class TestConfidenceCalibration:
             ],
         }
         report = evaluate_digest(digest)
-        errors = [i for i in report.issues if i.category == "confidence" and i.severity == ISSUE_ERROR]
+        errors = [
+            i
+            for i in report.issues
+            if i.category == "confidence" and i.severity == ISSUE_ERROR
+        ]
         assert len(errors) == 1
 
 
 # ── source_ref checks ─────────────────────────────────────────────────────────
+
 
 class TestSourceRef:
     def test_missing_source_ref_is_error(self):
@@ -282,6 +298,7 @@ class TestSourceRef:
 
 
 # ── Section assignment rules ──────────────────────────────────────────────────
+
 
 class TestSectionAssignment:
     def test_empty_section_is_warn(self):
@@ -348,11 +365,16 @@ class TestSectionAssignment:
             ],
         }
         report = evaluate_digest(digest)
-        errors = [i for i in report.issues if i.category == "section_assignment" and i.severity == ISSUE_ERROR]
+        errors = [
+            i
+            for i in report.issues
+            if i.category == "section_assignment" and i.severity == ISSUE_ERROR
+        ]
         assert len(errors) == 1
 
 
 # ── Duplicate items ───────────────────────────────────────────────────────────
+
 
 class TestDuplicateItems:
     def test_same_title_in_two_sections_is_warn(self):
@@ -391,6 +413,7 @@ class TestDuplicateItems:
 
 
 # ── Due date format ───────────────────────────────────────────────────────────
+
 
 class TestDueDateFormat:
     def test_valid_iso_date(self):
@@ -463,6 +486,7 @@ class TestDueDateFormat:
 
 # ── Empty digest ──────────────────────────────────────────────────────────────
 
+
 class TestEmptyDigest:
     def test_empty_sections_is_info(self):
         digest = {
@@ -491,6 +515,7 @@ class TestEmptyDigest:
 
 
 # ── Score and grade ───────────────────────────────────────────────────────────
+
 
 class TestScoreAndGrade:
     def test_score_decreases_with_errors(self):
@@ -531,6 +556,7 @@ class TestScoreAndGrade:
 
 # ── Report output ─────────────────────────────────────────────────────────────
 
+
 class TestReportOutput:
     def test_summary_contains_date(self):
         report = evaluate_digest(GOOD_DIGEST)
@@ -553,6 +579,7 @@ class TestReportOutput:
 
 
 # ── Per-item quality rate ─────────────────────────────────────────────────────
+
 
 class TestQualityRate:
     def test_perfect_digest_rate_is_1(self):
@@ -593,6 +620,7 @@ class TestQualityRate:
 
 # ── File-based evaluation ─────────────────────────────────────────────────────
 
+
 class TestEvaluateDigestFile:
     def test_eval_from_file(self, tmp_path):
         digest_path = tmp_path / "digest-2026-03-31.json"
@@ -620,6 +648,7 @@ class TestEvaluateDigestFile:
 
 
 # ── Changelog parser ──────────────────────────────────────────────────────────
+
 
 class TestChangelogParser:
     PROMPT_WITH_CHANGELOG = """\
@@ -688,14 +717,18 @@ Actual prompt content here.
     def test_actual_prompt_file_has_changelog(self):
         """Smoke test: the real extract_actions.v1.changelog must have parseable entries."""
         from digest_core.config import PROJECT_ROOT
+
         prompt_path = PROJECT_ROOT / "prompts" / "extract_actions.v1.txt"
         if not prompt_path.exists():
             pytest.skip("Prompt file not found")
         versions = parse_prompt_changelog(prompt_path)
-        assert len(versions) >= 1, "extract_actions.v1 must have at least one changelog entry"
+        assert (
+            len(versions) >= 1
+        ), "extract_actions.v1 must have at least one changelog entry"
 
 
 # ── CLI integration smoke test ────────────────────────────────────────────────
+
 
 class TestEvalPromptCLI:
     def test_eval_prompt_cli_exits_0_on_good_digest(self, tmp_path):
@@ -751,7 +784,13 @@ class TestEvalPromptCLI:
         runner = CliRunner()
         result = runner.invoke(
             app,
-            ["eval-prompt", "--digest", str(digest_path), "--output-json", str(json_report)],
+            [
+                "eval-prompt",
+                "--digest",
+                str(digest_path),
+                "--output-json",
+                str(json_report),
+            ],
         )
         assert result.exit_code == 0, result.output
         assert json_report.exists()

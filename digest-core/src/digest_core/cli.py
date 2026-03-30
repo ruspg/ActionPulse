@@ -284,7 +284,11 @@ def eval_prompt(
         python -m digest_core.cli eval-prompt --show-changelog
     """
     from digest_core.eval.prompt_eval import evaluate_digest_file
-    from digest_core.eval.changelog import parse_prompt_changelog, format_changelog, get_current_version
+    from digest_core.eval.changelog import (
+        parse_prompt_changelog,
+        format_changelog,
+        get_current_version,
+    )
     from digest_core.config import PROJECT_ROOT
 
     # Resolve default prompt file path

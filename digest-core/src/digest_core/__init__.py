@@ -13,8 +13,7 @@ DEFAULT_PROMPT_VERSION = "mvp.5"
 
 __all__ = [
     "__version__",
-    "PIPELINE_VERSION", 
+    "PIPELINE_VERSION",
     "SCHEMA_VERSION",
-    "DEFAULT_PROMPT_VERSION"
+    "DEFAULT_PROMPT_VERSION",
 ]
-
