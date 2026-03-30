@@ -72,6 +72,7 @@ class JSONAssembler:
             "total_emails_processed": getattr(digest_data, 'total_emails_processed', None),
             "emails_with_actions": getattr(digest_data, 'emails_with_actions', None)
         }
+        return result
     
     def read_digest(self, input_path: Path) -> Digest:
         """Read digest data from JSON file with schema validation."""

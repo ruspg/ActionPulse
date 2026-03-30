@@ -4,11 +4,18 @@ Health and readiness check endpoints for observability.
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
 import threading
+import time
 import structlog
 import httpx
-from typing import Optional
 
 logger = structlog.get_logger()
+_HEALTH_SERVERS = {}
+
+
+class ReusableHTTPServer(HTTPServer):
+    """HTTP server that tolerates rapid test restarts."""
+
+    allow_reuse_address = True
 
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -25,20 +32,17 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         elif self.path == '/readyz':
             self.send_readiness_response()
         else:
-            self.send_error(404, "Not Found")
-    
+            self._send_json(404, {"error": "Not Found", "timestamp": time.time()})
+
     def send_health_response(self):
         """Send health check response."""
         # Health check: is the service running?
         response = {
             "status": "healthy",
-            "service": "digest-core"
+            "service": "digest-core",
+            "timestamp": time.time(),
         }
-        
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(response).encode('utf-8'))
+        self._send_json(200, response)
     
     def send_readiness_response(self):
         """Send readiness check response."""
@@ -57,17 +61,15 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         
         # Determine overall readiness
         all_healthy = all(
-            check.get("status") == "healthy" 
+            check.get("status") in {"healthy", "unknown"}
             for check in checks["checks"].values()
         )
         
         checks["status"] = "ready" if all_healthy else "not_ready"
+        checks["timestamp"] = time.time()
         
         status_code = 200 if all_healthy else 503
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.end_headers()
-        self.wfile.write(json.dumps(checks).encode('utf-8'))
+        self._send_json(status_code, checks)
     
     def _check_llm_gateway(self) -> dict:
         """Check LLM Gateway connectivity."""
@@ -77,7 +79,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 # Try to make a simple request to check connectivity
                 # This is a basic check - in production you might want a dedicated health endpoint
                 response = client.get(
-                    self.llm_config.endpoint.replace('/chat', '/health'),
+                    self._get_llm_health_endpoint(),
                     headers={"Authorization": f"Bearer {self.llm_config.get_token()}"}
                 )
                 
@@ -102,6 +104,21 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "endpoint": self.llm_config.endpoint,
                 "reason": str(e)
             }
+
+    def _get_llm_health_endpoint(self) -> str:
+        """Map known chat endpoints to the gateway health endpoint."""
+        endpoint = self.llm_config.endpoint.rstrip("/")
+        for suffix in ("/api/v1/chat", "/chat"):
+            if endpoint.endswith(suffix):
+                return endpoint[: -len(suffix)] + "/health"
+        return endpoint + "/health"
+
+    def _send_json(self, status_code: int, payload: dict) -> None:
+        """Write a JSON response with a stable envelope."""
+        self.send_response(status_code)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode('utf-8'))
     
     def log_message(self, format, *args):
         """Override to suppress default logging."""
@@ -110,11 +127,13 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
 
 def start_health_server(port: int = 9109, llm_config=None):
     """Start health check HTTP server in background thread."""
+    if port in _HEALTH_SERVERS:
+        return _HEALTH_SERVERS[port]
     
     def handler_factory(*args, **kwargs):
         return HealthCheckHandler(*args, llm_config=llm_config, **kwargs)
     
-    server = HTTPServer(('0.0.0.0', port), handler_factory)
+    server = ReusableHTTPServer(('0.0.0.0', port), handler_factory)
     
     def serve():
         logger.info("Health check server started", port=port)
@@ -122,6 +141,5 @@ def start_health_server(port: int = 9109, llm_config=None):
     
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
-    
+    _HEALTH_SERVERS[port] = server
     return server
-

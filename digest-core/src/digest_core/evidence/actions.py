@@ -20,9 +20,8 @@ Enhancements:
 import re
 import math
 import structlog
-from typing import List, Dict, Optional, Tuple, Set
+from typing import List, Dict, Optional, Set
 from dataclasses import dataclass
-from datetime import datetime
 
 from digest_core.evidence.lemmatizer import LightweightLemmatizer
 
@@ -82,6 +81,7 @@ class ActionMentionExtractor:
     # English action markers
     EN_ACTION_MARKERS = [
         r'\bneed to\s+',
+        r'\bneed\b.{0,40}\bto\b',
         r'\bhave to\s+',
         r'\bmust\s+',
         r'\bshould\s+',
@@ -127,6 +127,7 @@ class ActionMentionExtractor:
             custom_verbs: Optional custom verb lemma dictionary for domain-specific actions
         """
         self.user_aliases = [alias.lower() for alias in user_aliases]
+        self.mention_aliases = self._build_mention_aliases(user_aliases)
         self.user_timezone = user_timezone
         
         # Initialize lemmatizer with custom verbs
@@ -137,6 +138,30 @@ class ActionMentionExtractor:
         
         # Compile regex patterns for performance
         self._compile_patterns()
+
+    def _build_mention_aliases(self, aliases: List[str]) -> List[str]:
+        """Expand aliases with common first-name/local-part variants."""
+        expanded: Set[str] = set()
+
+        for alias in aliases:
+            alias_lower = alias.lower().strip()
+            if not alias_lower:
+                continue
+            expanded.add(alias_lower)
+
+            if "@" in alias_lower:
+                local_part = alias_lower.split("@", 1)[0]
+                expanded.add(local_part)
+                for part in re.split(r"[._-]+", local_part):
+                    if len(part) >= 3:
+                        expanded.add(part)
+
+            if " " in alias_lower:
+                for part in alias_lower.split():
+                    if len(part) >= 3:
+                        expanded.add(part)
+
+        return sorted(expanded, key=len, reverse=True)
     
     def _build_action_verb_lemmas(self):
         """Build sets of action verb lemmas for quick matching."""
@@ -286,12 +311,31 @@ class ActionMentionExtractor:
     def _has_user_mention(self, text: str) -> bool:
         """Check if text mentions user (via aliases)."""
         text_lower = text.lower()
-        
-        for alias in self.user_aliases:
-            if alias in text_lower:
+
+        for alias in self.mention_aliases:
+            if self._match_alias(text_lower, alias):
                 return True
         
         return False
+
+    def _match_alias(self, text_lower: str, alias: str) -> bool:
+        """Match alias with simple word-boundary handling and noisy-context skips."""
+        if not alias:
+            return False
+
+        if any(char in alias for char in "@ "):
+            return alias in text_lower
+
+        pattern = re.compile(rf"(?<!\w){re.escape(alias)}(?:'s)?(?!\w)", re.IGNORECASE)
+        match = pattern.search(text_lower)
+        if not match:
+            return False
+
+        suffix = text_lower[match.end():].lstrip()
+        if suffix.startswith("team") or suffix.startswith("group") or suffix.startswith("dept"):
+            return False
+
+        return True
     
     def _find_imperative(self, text: str) -> Optional[str]:
         """
@@ -339,10 +383,23 @@ class ActionMentionExtractor:
                 # Skip: past tense passive, not action
                 return None
         
-        # Tokenize (simple split)
-        tokens = re.findall(r'\b\w+\b', text.lower())
-        
-        for token in tokens:
+        candidate_text = self._strip_leading_mention(text.lower())
+        tokens = re.findall(r'\b\w+\b', candidate_text)
+        if not tokens:
+            return None
+
+        polite_prefixes = {"please", "пожалуйста", "прошу"}
+        while tokens and tokens[0] in polite_prefixes:
+            tokens = tokens[1:]
+
+        if not tokens:
+            return None
+
+        token = tokens[0]
+        if not self._is_imperative_like(token):
+            return None
+
+        for token in tokens[:2]:
             # Lemmatize token
             lemma = self.lemmatizer.lemmatize_token(token, lang='auto')
             
@@ -355,6 +412,37 @@ class ActionMentionExtractor:
                 return lemma
         
         return None
+
+    def _strip_leading_mention(self, text: str) -> str:
+        """Remove leading direct mentions like 'Ivan,' before verb detection."""
+        for alias in self.mention_aliases:
+            if not alias or "@" in alias:
+                continue
+
+            pattern = re.compile(rf"^\s*{re.escape(alias)}[,:;\s-]+", re.IGNORECASE)
+            if pattern.match(text):
+                return pattern.sub("", text, count=1)
+
+        return text
+
+    def _is_imperative_like(self, token: str) -> bool:
+        """Best-effort filter to avoid treating narrative verb forms as requests."""
+        if not token:
+            return False
+
+        token_lower = token.lower()
+
+        if re.fullmatch(r"[a-z]+", token_lower):
+            if token_lower.endswith("ed") or token_lower.endswith("ing"):
+                return False
+            return True
+
+        if re.search(r"[а-яё]", token_lower):
+            if token_lower.endswith(("л", "ла", "ли", "ло")):
+                return False
+            return True
+
+        return False
     
     def _find_action_marker(self, text: str) -> Optional[str]:
         """
@@ -373,11 +461,6 @@ class ActionMentionExtractor:
         match = self.en_action_pattern.search(text)
         if match:
             return match.group(0)
-        
-        # Check for action verbs by lemma (fallback)
-        verb_found = self._find_verb_by_lemma(text)
-        if verb_found:
-            return verb_found
         
         return None
     
@@ -496,4 +579,3 @@ def enrich_actions_with_evidence(
             action.evidence_id = msg_chunks[0].evidence_id
     
     return actions
-

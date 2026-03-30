@@ -11,10 +11,13 @@ logger = structlog.get_logger()
 
 class MetricsCollector:
     """Collect and export Prometheus metrics for digest pipeline."""
+
+    _active_ports = set()
     
     def __init__(self, port: int = 9108):
         self.port = port
         self.start_time = time.time()
+        self._server_started = False
         
         # Create custom registry
         self.registry = CollectorRegistry()
@@ -25,12 +28,7 @@ class MetricsCollector:
         # Initialize metrics
         self._init_metrics()
         
-        # Start HTTP server for metrics export
-        try:
-            start_http_server(port, registry=self.registry)
-            logger.info("Prometheus metrics server started", port=port)
-        except Exception as e:
-            logger.warning("Failed to start metrics server", port=port, error=str(e))
+        self.start_server(port)
     
     def _init_metrics(self):
         """Initialize Prometheus metrics."""
@@ -52,6 +50,13 @@ class MetricsCollector:
         self.llm_tokens_out_total = Counter(
             'llm_tokens_out_total',
             'Total output tokens from LLM',
+            registry=self.registry
+        )
+
+        self.llm_request_context_total = Counter(
+            'llm_request_context_total',
+            'Low-cardinality LLM request context',
+            ['model', 'operation'],
             registry=self.registry
         )
         
@@ -308,25 +313,63 @@ class MetricsCollector:
             registry=self.registry
         )
     
-    def record_llm_latency(self, latency_ms: float):
+    def start_server(self, port: int | None = None):
+        """Start the Prometheus endpoint if it is not already active."""
+        port = port or self.port
+        self.port = port
+        if port in self.__class__._active_ports or self._server_started:
+            return
+        try:
+            start_http_server(port, registry=self.registry)
+            self.__class__._active_ports.add(port)
+            self._server_started = True
+            logger.info("Prometheus metrics server started", port=port)
+        except Exception as e:
+            logger.warning("Failed to start metrics server", port=port, error=str(e))
+
+    def stop_server(self):
+        """Compatibility no-op for tests and older callers."""
+        logger.debug("Metrics stop_server is a no-op", port=self.port)
+
+    def record_llm_latency(
+        self,
+        latency_ms: float,
+        model: str = "unknown",
+        operation: str = "unknown",
+    ):
         """Record LLM request latency."""
-        self.llm_latency_ms.observe(latency_ms)
-        logger.debug("Recorded LLM latency", latency_ms=latency_ms)
+        self.llm_latency_ms.observe(max(latency_ms, 0))
+        self.llm_request_context_total.labels(model=model, operation=operation).inc()
+        logger.debug(
+            "Recorded LLM latency",
+            latency_ms=latency_ms,
+            model=model,
+            operation=operation,
+        )
     
-    def record_llm_tokens(self, tokens_in: int, tokens_out: int):
+    def record_llm_tokens(
+        self, tokens_in: int, tokens_out: int, model: str = "unknown"
+    ):
         """Record LLM token usage."""
-        self.llm_tokens_in_total.inc(tokens_in)
-        self.llm_tokens_out_total.inc(tokens_out)
-        logger.debug("Recorded LLM tokens", tokens_in=tokens_in, tokens_out=tokens_out)
+        self.llm_tokens_in_total.inc(max(tokens_in, 0))
+        self.llm_tokens_out_total.inc(max(tokens_out, 0))
+        logger.debug(
+            "Recorded LLM tokens",
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            model=model,
+        )
     
-    def record_emails_total(self, count: int, status: str):
+    def record_emails_total(self, count: int, status: str = "processed"):
         """Record email processing metrics."""
-        self.emails_total.labels(status=status).inc(count)
+        self.emails_total.labels(status=status).inc(max(count, 0))
         logger.debug("Recorded email metrics", count=count, status=status)
     
-    def record_digest_build_time(self):
+    def record_digest_build_time(self, duration_seconds: float | None = None):
         """Record digest build time."""
-        build_time = time.time() - self.start_time
+        build_time = (
+            max(duration_seconds, 0) if duration_seconds is not None else time.time() - self.start_time
+        )
         self.digest_build_seconds.observe(build_time)
         logger.debug("Recorded digest build time", build_time=build_time)
     

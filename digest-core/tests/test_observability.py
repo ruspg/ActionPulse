@@ -4,7 +4,6 @@ Test observability endpoints and metrics.
 import pytest
 import requests
 import time
-from unittest.mock import Mock, patch
 from digest_core.observability.healthz import start_health_server
 from digest_core.observability.metrics import MetricsCollector
 
@@ -36,11 +35,11 @@ def test_healthz_endpoint():
 def test_readyz_endpoint():
     """Test /readyz endpoint returns 200 ready."""
     # Start health server in background
-    start_health_server(port=9109)
+    start_health_server(port=9110)
     time.sleep(0.1)  # Give server time to start
     
     try:
-        response = requests.get("http://localhost:9109/readyz", timeout=1)
+        response = requests.get("http://localhost:9110/readyz", timeout=1)
         assert response.status_code == 200
         
         data = response.json()
@@ -129,11 +128,11 @@ def test_metrics_server_start_stop(metrics_collector):
 def test_health_endpoint_404():
     """Test that unknown health endpoints return 404."""
     # Start health server in background
-    start_health_server(port=9109)
+    start_health_server(port=9111)
     time.sleep(0.1)  # Give server time to start
     
     try:
-        response = requests.get("http://localhost:9109/unknown", timeout=1)
+        response = requests.get("http://localhost:9111/unknown", timeout=1)
         assert response.status_code == 404
         
         data = response.json()
@@ -172,24 +171,12 @@ def test_metrics_prometheus_format():
 
 def test_metrics_labels():
     """Test that metrics have appropriate labels."""
-    # Start metrics server
     metrics = MetricsCollector()
-    metrics.start_server(port=9108)
-    time.sleep(0.1)  # Give server time to start
-    
-    try:
-        # Record some metrics
-        metrics.record_llm_latency(100, "Qwen/Qwen3-30B-A3B-Instruct-2507", "extract_actions")
-        metrics.record_llm_tokens(100, 50, "Qwen/Qwen3-30B-A3B-Instruct-2507")
-        
-        response = requests.get("http://localhost:9108/metrics", timeout=1)
-        assert response.status_code == 200
-        
-        content = response.text
-        
-        # Check that labels are present
-        assert "model=\"Qwen/Qwen3-30B-A3B-Instruct-2507\"" in content
-        assert "operation=\"extract_actions\"" in content
-    finally:
-        # Clean up - server will be stopped when process ends
-        pass
+    metrics.record_llm_latency(100, "Qwen/Qwen3-30B-A3B-Instruct-2507", "extract_actions")
+    metrics.record_llm_tokens(100, 50, "Qwen/Qwen3-30B-A3B-Instruct-2507")
+
+    values = metrics.get_metric_values()
+    metric_key = next(key for key in values if key.startswith("llm_request_context"))
+    samples = values[metric_key]["samples"]
+    assert any(sample["labels"].get("model") == "Qwen/Qwen3-30B-A3B-Instruct-2507" for sample in samples)
+    assert any(sample["labels"].get("operation") == "extract_actions" for sample in samples)

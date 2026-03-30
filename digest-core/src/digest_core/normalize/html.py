@@ -103,6 +103,14 @@ class HTMLNormalizer:
             
             # Step 8: Normalize unicode characters
             text = self._normalize_unicode(text)
+
+            if fallback_plaintext and self._should_use_plaintext_fallback(
+                html_content, text
+            ):
+                logger.info("Using text/plain fallback after low-quality HTML parse")
+                if self.metrics:
+                    self.metrics.record_html_parse_error('fallback_used')
+                return self._normalize_unicode(fallback_plaintext), False
             
             logger.debug("HTML parsed successfully", text_length=len(text))
             return text, True
@@ -128,6 +136,21 @@ class HTMLNormalizer:
             text = html.unescape(text)
             text = self._normalize_unicode(text)
             return text, False
+
+    def _should_use_plaintext_fallback(self, html_content: str, parsed_text: str) -> bool:
+        """Detect cases where HTML parsing returned the original garbage unchanged."""
+        normalized_source = self._normalize_unicode(
+            self._clean_whitespace(html.unescape(html_content))
+        )
+        normalized_text = parsed_text.strip()
+
+        if not normalized_text:
+            return True
+
+        return (
+            normalized_text == normalized_source
+            and ("<" in html_content or ">" in html_content)
+        )
     
     def _remove_unwanted_elements(self, soup):
         """Remove script, style, svg, and tracking elements."""

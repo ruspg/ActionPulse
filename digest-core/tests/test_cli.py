@@ -2,7 +2,7 @@
 Test CLI functionality and exit codes.
 """
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from digest_core.cli import app
 from typer.testing import CliRunner
 
@@ -32,7 +32,7 @@ def test_cli_run_help(runner):
 
 def test_cli_run_dry_run(runner):
     """Test CLI run with dry-run flag."""
-    with patch('digest_core.cli.run_digest') as mock_run:
+    with patch('digest_core.cli.run_digest_dry_run') as mock_run:
         result = runner.invoke(app, [
             "run",
             "--from-date", "2024-01-15",
@@ -45,6 +45,7 @@ def test_cli_run_dry_run(runner):
         # Dry-run should exit with code 2
         assert result.exit_code == 2
         assert "dry-run" in result.output.lower()
+        mock_run.assert_called_once()
 
 
 def test_cli_run_success(runner):
@@ -163,24 +164,26 @@ def test_cli_run_exception_handling(runner):
 
 
 def test_cli_run_config_loading(runner):
-    """Test CLI run config loading."""
-    with patch('digest_core.cli.Config') as mock_config_class:
-        mock_config = Mock()
-        mock_config_class.return_value = mock_config
-        
-        with patch('digest_core.cli.run_digest') as mock_run:
-            mock_run.return_value = None
-            
-            result = runner.invoke(app, [
-                "run",
-                "--from-date", "2024-01-15",
-                "--sources", "ews",
-                "--out", "/tmp/test",
-                "--model", "Qwen/Qwen3-30B-A3B-Instruct-2507"
-            ])
-            
-            assert result.exit_code == 0
-            mock_config_class.assert_called_once()
+    """Test CLI run forwards normalized arguments to the pipeline entrypoint."""
+    with patch('digest_core.cli.run_digest') as mock_run:
+        mock_run.return_value = None
+
+        result = runner.invoke(app, [
+            "run",
+            "--from-date", "2024-01-15",
+            "--sources", "ews,slack",
+            "--out", "/tmp/test",
+            "--model", "Qwen/Qwen3-30B-A3B-Instruct-2507"
+        ])
+
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert mock_run.call_args.args[:4] == (
+            "2024-01-15",
+            ["ews", "slack"],
+            "/tmp/test",
+            "Qwen/Qwen3-30B-A3B-Instruct-2507",
+        )
 
 
 def test_cli_run_logging(runner):

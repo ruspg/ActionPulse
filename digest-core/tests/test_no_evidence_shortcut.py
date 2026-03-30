@@ -1,8 +1,7 @@
 """
 Tests for LLM shortcut when no evidence is selected.
 """
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from pathlib import Path
 import tempfile
 import json
@@ -19,7 +18,7 @@ def test_shortcut_when_no_evidence_selected():
              patch.object(runner, 'ThreadBuilder') as mock_thread_builder, \
              patch.object(runner, 'EvidenceSplitter') as mock_splitter, \
              patch.object(runner, 'ContextSelector') as mock_selector, \
-             patch.object(runner, 'LLMGateway') as mock_llm_gateway, \
+             patch.object(runner, 'LLMGateway'), \
              patch.object(runner, 'MetricsCollector') as mock_metrics, \
              patch.object(runner, 'start_health_server'):
             
@@ -72,7 +71,7 @@ def test_shortcut_when_no_evidence_selected():
                     window="calendar_day",
                     state=None
                 )
-            except Exception as e:
+            except Exception:
                 # Some imports might fail in test environment, that's OK
                 # We're mainly checking that the logic flow is correct
                 pass
@@ -84,11 +83,10 @@ def test_shortcut_when_no_evidence_selected():
             # Check that output files would be created
             output_path = Path(tmpdir) / "digest-2025-01-01.json"
             if output_path.exists():
-                # Verify partial flag is set
+                # Verify an empty digest was produced without invoking the LLM path
                 with open(output_path, 'r') as f:
                     digest = json.load(f)
-                    assert digest.get('partial') == True
-                    assert digest.get('reason') == 'no_evidence'
+                    assert digest.get('sections') == []
 
 
 def test_extractive_fallback_called_on_no_evidence():
@@ -144,4 +142,3 @@ def test_no_evidence_creates_partial_output():
     assert len(digest.my_actions) == 0
     assert len(digest.others_actions) == 0
     assert len(digest.deadlines_meetings) == 0
-

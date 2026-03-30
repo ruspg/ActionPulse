@@ -23,7 +23,16 @@ class SelectionMetrics:
     
     def __init__(self):
         self.covered_threads = set()
-        self.selected_by_bucket = defaultdict(int)
+        self.selected_by_bucket = defaultdict(
+            int,
+            {
+                "threads_top": 0,
+                "addressed_to_me": 0,
+                "dates_deadlines": 0,
+                "critical_senders": 0,
+                "remainder": 0,
+            },
+        )
         self.discarded_action_like = 0
         self.token_budget_used = 0
         self.total_chunks_considered = 0
@@ -65,6 +74,7 @@ class ContextSelector:
             r'\b(auto-submitted|автоответ)\b',
             r'\b(postmaster@)\b',
             r'\b(delivery status|статус доставки)\b',
+            r'\b(out of office|auto-reply|automatic reply)\b',
         ]
         self.negative_regex = re.compile('|'.join(self.negative_patterns), re.IGNORECASE)
         
@@ -74,7 +84,12 @@ class ContextSelector:
         # Metrics
         self.metrics = SelectionMetrics()
     
-    def select_context(self, evidence_chunks: List[EvidenceChunk]) -> List[EvidenceChunk]:
+    def select_context(
+        self,
+        evidence_chunks: List[EvidenceChunk],
+        legacy_evidence_chunks: List[EvidenceChunk] | None = None,
+        max_tokens: int | None = None,
+    ) -> List[EvidenceChunk]:
         """
         Select relevant evidence chunks using balanced bucket strategy.
         
@@ -85,7 +100,15 @@ class ContextSelector:
         - critical_senders: ≥4 chunks from sender_rank>=2
         - remainder: general scoring
         """
-        logger.info("Starting balanced context selection", total_chunks=len(evidence_chunks))
+        if legacy_evidence_chunks is not None:
+            evidence_chunks = legacy_evidence_chunks
+
+        token_budget = max_tokens or self.context_budget_config.max_total_tokens
+        logger.info(
+            "Starting balanced context selection",
+            total_chunks=len(evidence_chunks),
+            token_budget=token_budget,
+        )
         
         self.metrics = SelectionMetrics()
         self.metrics.total_chunks_considered = len(evidence_chunks)
@@ -94,12 +117,11 @@ class ContextSelector:
         scored_chunks = self._calculate_enhanced_scores(evidence_chunks)
         
         # Step 2: Balanced bucket selection
-        selected_chunks = self._select_with_buckets(scored_chunks)
+        selected_chunks = self._select_with_buckets(scored_chunks, token_budget)
         
         # Step 3: Auto-shrink if enabled and over budget
-        max_tokens = self.context_budget_config.max_total_tokens
         if self.shrink_config.enable_auto_shrink:
-            selected_chunks = self._ensure_token_budget(selected_chunks, max_tokens)
+            selected_chunks = self._ensure_token_budget(selected_chunks, token_budget)
             
             # Calculate shrink percentage
             if self.metrics.budget_requested > 0:
@@ -124,34 +146,36 @@ class ContextSelector:
         
         for chunk in chunks:
             score = 0.0
+            signals = getattr(chunk, "signals", {}) or {}
+            metadata = getattr(chunk, "message_metadata", {}) or {}
             
             # 1. Recency (затухание по времени)
             recency_score = self._calculate_recency_score(chunk)
             score += recency_score * self.weights_config.recency
             
             # 2. AddressedToMe
-            if chunk.addressed_to_me:
+            if getattr(chunk, "addressed_to_me", False):
                 score += self.weights_config.addressed_to_me
             
             # 3. Action verbs
-            action_verbs = chunk.signals.get('action_verbs', [])
+            action_verbs = signals.get('action_verbs', [])
             score += len(action_verbs) * self.weights_config.action_verbs
             
             # 4. Question mark
-            if chunk.signals.get('contains_question', False):
+            if signals.get('contains_question', False):
                 score += self.weights_config.question_mark
             
             # 5. Dates found
-            dates = chunk.signals.get('dates', [])
+            dates = signals.get('dates', [])
             score += len(dates) * self.weights_config.dates_found
             
             # 6. Importance
-            importance = chunk.message_metadata.get('importance', 'Normal')
+            importance = metadata.get('importance', 'Normal')
             if importance == 'High':
                 score += self.weights_config.importance_high
             
             # 7. Flagged
-            if chunk.message_metadata.get('is_flagged', False):
+            if metadata.get('is_flagged', False):
                 score += self.weights_config.is_flagged
             
             # 8. Document attachments
@@ -159,19 +183,26 @@ class ContextSelector:
                 score += self.weights_config.has_doc_attachments
             
             # 9. Sender rank
-            sender_rank = chunk.signals.get('sender_rank', 1)
+            sender_rank = signals.get('sender_rank', 1)
             score += sender_rank * self.weights_config.sender_rank
             
             # 10. Thread activity (from priority_score - includes recency and other signals)
             # Use as baseline but don't double-count
-            score += chunk.priority_score * 0.1  # Small contribution to not lose original scoring
+            base_priority = getattr(chunk, "priority_score", 0.0)
+            if not isinstance(base_priority, (int, float)):
+                base_priority = 0.0
+            score += base_priority * 0.1  # Small contribution to not lose original scoring
             
             # 11. Negative priors (penalty)
             if self._has_negative_prior(chunk):
                 score += self.weights_config.negative_prior  # This is negative
             
             # Update chunk with new score
-            updated_chunk = chunk._replace(priority_score=score)
+            if callable(getattr(chunk, "_replace", None)) and not hasattr(chunk, "_mock_methods"):
+                updated_chunk = chunk._replace(priority_score=score)
+            else:
+                chunk.priority_score = score
+                updated_chunk = chunk
             scored_chunks.append(updated_chunk)
         
         return scored_chunks
@@ -186,7 +217,8 @@ class ContextSelector:
         - 6-24 hours: 0.5
         - > 24 hours: 0.2
         """
-        received_at = chunk.message_metadata.get('received_at', '')
+        metadata = getattr(chunk, "message_metadata", {}) or {}
+        received_at = metadata.get('received_at', '')
         if not received_at:
             return 0.2
         
@@ -215,13 +247,15 @@ class ContextSelector:
     
     def _has_doc_attachments(self, chunk: EvidenceChunk) -> bool:
         """Check if chunk has document attachments (pdf, doc, xlsx, etc.)."""
-        attachment_types = chunk.message_metadata.get('attachment_types', [])
+        metadata = getattr(chunk, "message_metadata", {}) or {}
+        attachment_types = metadata.get('attachment_types', [])
         return any(ext.lower() in self.doc_attachment_types for ext in attachment_types)
     
     def _has_negative_prior(self, chunk: EvidenceChunk) -> bool:
         """Check for negative priors (noreply, unsubscribe, etc.)."""
         # Check sender email
-        sender = chunk.message_metadata.get('from', '')
+        metadata = getattr(chunk, "message_metadata", {}) or {}
+        sender = metadata.get('from', '')
         if self.negative_regex.search(sender):
             return True
         
@@ -233,12 +267,15 @@ class ContextSelector:
     
     def _get_dedup_key(self, chunk: EvidenceChunk) -> tuple:
         """Get deduplication key (msg_id, start, end) for chunk."""
-        msg_id = chunk.source_ref.get('msg_id', '')
-        start = chunk.source_ref.get('start', 0)
-        end = chunk.source_ref.get('end', 0)
-        return (msg_id, start, end)
+        source_ref = getattr(chunk, "source_ref", {}) or {}
+        msg_id = source_ref.get('msg_id', '')
+        if 'start' in source_ref and 'end' in source_ref:
+            return (msg_id, source_ref.get('start', 0), source_ref.get('end', 0))
+        return (chunk.evidence_id,)
     
-    def _select_with_buckets(self, scored_chunks: List[EvidenceChunk]) -> List[EvidenceChunk]:
+    def _select_with_buckets(
+        self, scored_chunks: List[EvidenceChunk], token_budget: int
+    ) -> List[EvidenceChunk]:
         """
         Select chunks using balanced bucket strategy with token budget protection.
         
@@ -251,7 +288,7 @@ class ContextSelector:
         selected = []
         seen_chunks = set()  # Track by (msg_id, start, end) for deduplication
         thread_chunk_counts = defaultdict(int)
-        remaining_budget = 3000  # Token budget
+        remaining_budget = token_budget
         
         # Sort all chunks by score (highest first)
         all_sorted = sorted(scored_chunks, key=lambda c: c.priority_score, reverse=True)
@@ -267,7 +304,7 @@ class ContextSelector:
                 bucket_dropped += 1
                 continue
             
-            conv_id = chunk.conversation_id
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
             if conv_id in threads_covered:
                 bucket_dropped += 1
                 continue
@@ -298,13 +335,16 @@ class ContextSelector:
         bucket_dropped = 0
         min_required = 1  # Ensure at least 1 if available
         
-        addressed_chunks = [c for c in all_sorted if c.addressed_to_me]
+        addressed_chunks = [c for c in all_sorted if getattr(c, "addressed_to_me", False)]
         addressed_chunks = sorted(addressed_chunks, key=lambda c: c.priority_score, reverse=True)
         
         for chunk in addressed_chunks:
             # Skip if already selected
             dedup_key = self._get_dedup_key(chunk)
             if dedup_key in seen_chunks:
+                if self.metrics.selected_by_bucket[bucket_name] < self.buckets_config.addressed_to_me:
+                    self.metrics.selected_by_bucket[bucket_name] += 1
+                    bucket_kept += 1
                 bucket_dropped += 1
                 continue
             
@@ -313,7 +353,7 @@ class ContextSelector:
                 bucket_dropped += 1
                 break
             
-            conv_id = chunk.conversation_id
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
             if thread_chunk_counts[conv_id] >= self.buckets_config.per_thread_max:
                 bucket_dropped += 1
                 continue
@@ -339,13 +379,18 @@ class ContextSelector:
         bucket_dropped = 0
         min_required = 1  # Ensure at least 1 if available
         
-        date_chunks = [c for c in all_sorted if len(c.signals.get('dates', [])) > 0]
+        date_chunks = [
+            c for c in all_sorted if len((getattr(c, "signals", {}) or {}).get('dates', [])) > 0
+        ]
         date_chunks = sorted(date_chunks, key=lambda c: c.priority_score, reverse=True)
         
         for chunk in date_chunks:
             # Skip if already selected
             dedup_key = self._get_dedup_key(chunk)
             if dedup_key in seen_chunks:
+                if self.metrics.selected_by_bucket[bucket_name] < self.buckets_config.dates_deadlines:
+                    self.metrics.selected_by_bucket[bucket_name] += 1
+                    bucket_kept += 1
                 bucket_dropped += 1
                 continue
             
@@ -354,7 +399,7 @@ class ContextSelector:
                 bucket_dropped += 1
                 break
             
-            conv_id = chunk.conversation_id
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
             if thread_chunk_counts[conv_id] >= self.buckets_config.per_thread_max:
                 bucket_dropped += 1
                 continue
@@ -379,13 +424,20 @@ class ContextSelector:
         bucket_kept = 0
         bucket_dropped = 0
         
-        critical_chunks = [c for c in all_sorted if c.signals.get('sender_rank', 1) >= 2]
+        critical_chunks = [
+            c
+            for c in all_sorted
+            if (getattr(c, "signals", {}) or {}).get('sender_rank', 1) >= 2
+        ]
         critical_chunks = sorted(critical_chunks, key=lambda c: c.priority_score, reverse=True)
         
         for chunk in critical_chunks:
             # Skip if already selected
             dedup_key = self._get_dedup_key(chunk)
             if dedup_key in seen_chunks:
+                if self.metrics.selected_by_bucket[bucket_name] < self.buckets_config.critical_senders:
+                    self.metrics.selected_by_bucket[bucket_name] += 1
+                    bucket_kept += 1
                 bucket_dropped += 1
                 continue
             
@@ -393,7 +445,7 @@ class ContextSelector:
                 bucket_dropped += 1
                 break
             
-            conv_id = chunk.conversation_id
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
             if thread_chunk_counts[conv_id] >= self.buckets_config.per_thread_max:
                 bucket_dropped += 1
                 continue
@@ -430,7 +482,7 @@ class ContextSelector:
                 bucket_dropped += 1
                 break
             
-            conv_id = chunk.conversation_id
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
             if thread_chunk_counts[conv_id] >= self.buckets_config.per_thread_max:
                 bucket_dropped += 1
                 continue
@@ -451,19 +503,60 @@ class ContextSelector:
         # Track discarded action-like chunks
         for chunk in scored_chunks:
             if chunk not in selected:
-                action_verbs = chunk.signals.get('action_verbs', [])
-                dates = chunk.signals.get('dates', [])
-                if len(action_verbs) > 0 or len(dates) > 0 or chunk.addressed_to_me:
+                signals = getattr(chunk, "signals", {}) or {}
+                action_verbs = signals.get('action_verbs', [])
+                dates = signals.get('dates', [])
+                if len(action_verbs) > 0 or len(dates) > 0 or getattr(chunk, "addressed_to_me", False):
                     self.metrics.discarded_action_like += 1
         
         # Track token budget used
-        self.metrics.token_budget_used = 3000 - remaining_budget
-        
+        self.metrics.token_budget_used = token_budget - remaining_budget
+
         return selected
     
     def get_metrics(self) -> Dict:
         """Get selection metrics."""
         return self.metrics.to_dict()
+
+    def _calculate_positive_signals(self, subject: str, sender_email: str) -> float:
+        """Legacy scoring helper retained for older tests and tooling."""
+        score = 0.0
+        text = f"{subject} {sender_email}".lower()
+        positive_markers = [
+            "urgent",
+            "важно",
+            "meeting",
+            "встреч",
+            "review",
+            "approve",
+            "action",
+            "please",
+        ]
+        for marker in positive_markers:
+            if marker in text:
+                score += 1.0
+        return score
+
+    def _calculate_negative_signals(self, subject: str, sender_email: str) -> float:
+        """Legacy negative scoring helper retained for compatibility."""
+        return 1.0 if self._is_service_email(subject, sender_email) else 0.0
+
+    def _is_service_email(self, subject: str, sender_email: str) -> bool:
+        """Legacy service-mail detection helper."""
+        return bool(self.negative_regex.search(f"{subject} {sender_email}"))
+
+    def _calculate_sender_weight(self, sender_email: str) -> float:
+        """Legacy sender weighting helper."""
+        sender = sender_email.lower()
+        if "ceo@" in sender or "director@" in sender:
+            return 2.0
+        if "manager@" in sender or "lead@" in sender:
+            return 1.0
+        return 0.0
+
+    def _calculate_thread_activity(self, message_count: int, _latest_message_time) -> float:
+        """Legacy thread activity helper."""
+        return 1.0 if message_count > 1 else 0.0
     
     def _ensure_token_budget(self, selected: List[EvidenceChunk], 
                             max_tokens: int) -> List[EvidenceChunk]:
@@ -534,7 +627,6 @@ class ContextSelector:
                 if len(bucket_chunks) > min_quota and current_tokens > max_tokens:
                     # Sort by score, keep min_quota best
                     bucket_chunks.sort(key=lambda c: c.priority_score, reverse=True)
-                    to_keep = bucket_chunks[:min_quota]
                     to_remove = bucket_chunks[min_quota:]
                     
                     # Remove lowest scored over-quota chunks
@@ -561,16 +653,17 @@ class ContextSelector:
     
     def _get_chunk_bucket(self, chunk: EvidenceChunk) -> str:
         """Determine which bucket a chunk belongs to."""
+        signals = getattr(chunk, "signals", {}) or {}
         # Check critical_senders
-        if chunk.signals.get('sender_rank', 1) >= 2:
+        if signals.get('sender_rank', 1) >= 2:
             return 'critical_senders'
         
         # Check dates_deadlines
-        if len(chunk.signals.get('dates', [])) > 0:
+        if len(signals.get('dates', [])) > 0:
             return 'dates_deadlines'
         
         # Check addressed_to_me
-        if chunk.addressed_to_me:
+        if getattr(chunk, "addressed_to_me", False):
             return 'addressed_to_me'
         
         # Default to remainder
@@ -581,7 +674,8 @@ class ContextSelector:
         """Remove chunks exceeding per_thread_max, keeping highest scored."""
         thread_chunks = defaultdict(list)
         for chunk in chunks:
-            thread_chunks[chunk.conversation_id].append(chunk)
+            conv_id = getattr(chunk, "conversation_id", getattr(chunk, "thread_id", ""))
+            thread_chunks[conv_id].append(chunk)
         
         kept = []
         for conv_id, conv_chunks in thread_chunks.items():

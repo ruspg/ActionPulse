@@ -2,6 +2,7 @@
 Mock LLM Gateway for testing purposes.
 """
 import json
+import re
 import time
 from typing import Dict, Any, List
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -13,6 +14,13 @@ logger = structlog.get_logger()
 
 class MockLLMGatewayHandler(BaseHTTPRequestHandler):
     """Mock LLM Gateway HTTP handler for testing."""
+
+    def do_GET(self):
+        """Handle GET requests for health checks."""
+        if self.path in {"/health", "/api/v1/health"}:
+            self.handle_health_request()
+        else:
+            self.send_error(404, "Not Found")
     
     def do_POST(self):
         """Handle POST requests to LLM Gateway."""
@@ -94,6 +102,10 @@ class MockLLMGatewayHandler(BaseHTTPRequestHandler):
         """Generate mock action extraction response."""
         # Simple heuristic: if content contains action words, generate actions
         action_words = ['urgent', 'please', 'review', 'meeting', 'deadline', 'срочно', 'пожалуйста']
+        evidence_match = re.search(r"ID:\s*([A-Za-z0-9_-]+)", content)
+        msg_match = re.search(r"Msg:\s*([A-Za-z0-9_-]+)", content)
+        evidence_id = evidence_match.group(1) if evidence_match else "ev-mock-001"
+        msg_id = msg_match.group(1) if msg_match else "msg-mock-001"
         
         has_actions = any(word in content.lower() for word in action_words)
         
@@ -104,11 +116,11 @@ class MockLLMGatewayHandler(BaseHTTPRequestHandler):
                     "items": [{
                         "title": "Mock Action Item",
                         "due": "2024-01-16",
-                        "evidence_id": "ev-mock-001",
+                        "evidence_id": evidence_id,
                         "confidence": 0.85,
                         "source_ref": {
                             "type": "email",
-                            "msg_id": "msg-mock-001",
+                            "msg_id": msg_id,
                             "conversation_id": "conv-mock-001"
                         }
                     }]
@@ -194,7 +206,7 @@ if __name__ == "__main__":
     mock_gateway = MockLLMGateway(port=8080)
     try:
         mock_gateway.start()
-        print(f"Mock LLM Gateway running on http://localhost:8080")
+        print("Mock LLM Gateway running on http://localhost:8080")
         print("Press Ctrl+C to stop")
         
         # Keep running

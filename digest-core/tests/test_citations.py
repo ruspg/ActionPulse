@@ -29,7 +29,7 @@ def multibyte_normalized_map():
     """Normalized map with multibyte characters (emoji, russian, special chars)."""
     return {
         "msg-emoji": "Hello 👋 world! Important: review PR #123 by tomorrow 🚀",
-        "msg-quotes": "Please review "Document.pdf" and 'report.xlsx' files.",
+        "msg-quotes": 'Please review "Document.pdf" and \'report.xlsx\' files.',
         "msg-mixed": "Срочно: проверить email@example.com до 15:00 ⏰",
     }
 
@@ -221,8 +221,8 @@ class TestCitationValidator:
         """Test validation of valid citation."""
         citation = Citation(
             msg_id="msg-001",
-            start=10,
-            end=30,
+            start=8,
+            end=25,
             preview="a test email body",
             checksum=None  # Checksum validation optional
         )
@@ -234,20 +234,15 @@ class TestCitationValidator:
         assert error is None
     
     def test_validate_invalid_start_offset(self, simple_normalized_map):
-        """Test validation with invalid start offset (negative)."""
-        citation = Citation(
-            msg_id="msg-001",
-            start=-5,
-            end=10,
-            preview="test",
-            checksum=None
-        )
-        
-        validator = CitationValidator(simple_normalized_map)
-        is_valid, error = validator.validate_citation(citation)
-        
-        assert not is_valid
-        assert "Invalid start offset" in error
+        """Test schema rejects invalid start offset before validator runs."""
+        with pytest.raises(Exception):
+            Citation(
+                msg_id="msg-001",
+                start=-5,
+                end=10,
+                preview="test",
+                checksum=None
+            )
     
     def test_validate_invalid_end_offset(self, simple_normalized_map):
         """Test validation with end <= start."""
@@ -333,7 +328,7 @@ class TestCitationValidator:
         """Test validation of multiple valid citations."""
         citations = [
             Citation(msg_id="msg-001", start=0, end=10, preview="This is a ", checksum=None),
-            Citation(msg_id="msg-002", start=0, end=10, preview="Привет! Это", checksum=None),
+            Citation(msg_id="msg-002", start=0, end=11, preview="Привет! Это", checksum=None),
             Citation(msg_id="msg-003", start=0, end=5, preview="Short", checksum=None),
         ]
         
@@ -348,7 +343,7 @@ class TestCitationValidator:
         citations = [
             Citation(msg_id="msg-001", start=0, end=10, preview="This is a ", checksum=None),  # Valid
             Citation(msg_id="msg-999", start=0, end=10, preview="test", checksum=None),  # Invalid msg_id
-            Citation(msg_id="msg-001", start=-5, end=10, preview="test", checksum=None),  # Invalid offset
+            Citation(msg_id="msg-001", start=20, end=10, preview="test", checksum=None),  # Invalid offset range
         ]
         
         validator = CitationValidator(simple_normalized_map)
@@ -361,7 +356,7 @@ class TestCitationValidator:
         """Test strict mode stops on first error."""
         citations = [
             Citation(msg_id="msg-999", start=0, end=10, preview="test", checksum=None),  # Invalid
-            Citation(msg_id="msg-001", start=-5, end=10, preview="test", checksum=None),  # Invalid
+            Citation(msg_id="msg-001", start=20, end=10, preview="test", checksum=None),  # Invalid but schema-valid
         ]
         
         validator = CitationValidator(simple_normalized_map)
@@ -545,4 +540,3 @@ class TestCitationEdgeCases:
         
         # Should handle fuzzy matching for whitespace
         assert citation is not None
-

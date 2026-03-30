@@ -2,10 +2,26 @@
 Test markdown and JSON assembly with schema validation.
 """
 import pytest
-from unittest.mock import Mock
+from pathlib import Path
 from digest_core.assemble.markdown import MarkdownAssembler
 from digest_core.assemble.jsonout import JSONAssembler
 from digest_core.llm.schemas import Digest, Section, Item
+
+
+class MarkdownOutputWriter(MarkdownAssembler):
+    """Compatibility wrapper returning rendered content."""
+
+    def write_digest(self, digest_data, output_path):
+        super().write_digest(digest_data, Path(output_path))
+        return Path(output_path).read_text(encoding="utf-8")
+
+
+class JSONOutputWriter(JSONAssembler):
+    """Compatibility wrapper returning rendered content."""
+
+    def write_digest(self, digest_data, output_path):
+        super().write_digest(digest_data, Path(output_path))
+        return Path(output_path).read_text(encoding="utf-8")
 
 
 @pytest.fixture
@@ -14,17 +30,17 @@ def sample_digest():
     items = [
         Item(
             title="Check Q4 Report",
-            description="Review quarterly performance metrics",
+            due=None,
             confidence=0.9,
             evidence_id="ev-001",
-            source_ref={"msg_id": "msg-001", "thread_id": "thread-001"}
+            source_ref={"type": "email", "msg_id": "msg-001", "thread_id": "thread-001"}
         ),
         Item(
             title="Schedule Team Meeting",
-            description="Organize weekly standup for next week",
+            due=None,
             confidence=0.8,
             evidence_id="ev-002",
-            source_ref={"msg_id": "msg-002", "thread_id": "thread-002"}
+            source_ref={"type": "email", "msg_id": "msg-002", "thread_id": "thread-002"}
         )
     ]
     
@@ -136,7 +152,6 @@ def test_json_item_structure(json_writer, sample_digest):
     # Check first item structure
     first_item = parsed["sections"][0]["items"][0]
     assert "title" in first_item
-    assert "description" in first_item
     assert "confidence" in first_item
     assert "evidence_id" in first_item
     assert "source_ref" in first_item
@@ -174,20 +189,20 @@ def test_markdown_multiple_sections(markdown_writer):
     items1 = [
         Item(
             title="Action 1",
-            description="Description 1",
+            due=None,
             confidence=0.9,
             evidence_id="ev-001",
-            source_ref={"msg_id": "msg-001", "thread_id": "thread-001"}
+            source_ref={"type": "email", "msg_id": "msg-001", "thread_id": "thread-001"}
         )
     ]
     
     items2 = [
         Item(
             title="Action 2",
-            description="Description 2",
+            due=None,
             confidence=0.8,
             evidence_id="ev-002",
-            source_ref={"msg_id": "msg-002", "thread_id": "thread-002"}
+            source_ref={"type": "email", "msg_id": "msg-002", "thread_id": "thread-002"}
         )
     ]
     
@@ -217,20 +232,20 @@ def test_json_multiple_sections(json_writer):
     items1 = [
         Item(
             title="Action 1",
-            description="Description 1",
+            due=None,
             confidence=0.9,
             evidence_id="ev-001",
-            source_ref={"msg_id": "msg-001", "thread_id": "thread-001"}
+            source_ref={"type": "email", "msg_id": "msg-001", "thread_id": "thread-001"}
         )
     ]
     
     items2 = [
         Item(
             title="Action 2",
-            description="Description 2",
+            due=None,
             confidence=0.8,
             evidence_id="ev-002",
-            source_ref={"msg_id": "msg-002", "thread_id": "thread-002"}
+            source_ref={"type": "email", "msg_id": "msg-002", "thread_id": "thread-002"}
         )
     ]
     
