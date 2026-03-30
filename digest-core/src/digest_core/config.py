@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import yaml
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -110,7 +109,7 @@ class LLMConfig(BaseModel):
     """LLM Gateway configuration."""
 
     endpoint: str = Field(default="", description="LLM Gateway endpoint")
-    model: str = Field(default="qwen3.5-397b", description="Model identifier")
+    model: str = Field(default="qwen35-397b-a17b", description="Model identifier")
     timeout_s: int = Field(default=120, description="Request timeout in seconds")
     headers: Dict[str, str] = Field(
         default_factory=dict, description="Additional headers"

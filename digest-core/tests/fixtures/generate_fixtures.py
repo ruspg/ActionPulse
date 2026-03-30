@@ -1,8 +1,8 @@
 """
 Sample email fixtures for testing.
 """
+
 import json
-import os
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -10,12 +10,14 @@ from pathlib import Path
 def create_sample_emails():
     """Create sample email fixtures."""
     emails = []
-    
+
     # Email 1: Urgent action item
     email1 = {
         "msg_id": "msg-001",
         "conversation_id": "conv-001",
-        "datetime_received": (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat(),
+        "datetime_received": (
+            datetime.now(timezone.utc) - timedelta(hours=2)
+        ).isoformat(),
         "sender": {"email_address": "manager@company.com"},
         "subject": "URGENT: Server Maintenance Required",
         "text_body": """
@@ -26,15 +28,17 @@ def create_sample_emails():
         
         Best regards,
         Manager
-        """
+        """,
     }
     emails.append(email1)
-    
+
     # Email 2: Meeting request
     email2 = {
         "msg_id": "msg-002",
         "conversation_id": "conv-002",
-        "datetime_received": (datetime.now(timezone.utc) - timedelta(hours=4)).isoformat(),
+        "datetime_received": (
+            datetime.now(timezone.utc) - timedelta(hours=4)
+        ).isoformat(),
         "sender": {"email_address": "colleague@company.com"},
         "subject": "Meeting: Q4 Review",
         "text_body": """
@@ -45,15 +49,17 @@ def create_sample_emails():
         
         Thanks,
         Colleague
-        """
+        """,
     }
     emails.append(email2)
-    
+
     # Email 3: Out of Office
     email3 = {
         "msg_id": "msg-003",
         "conversation_id": "conv-003",
-        "datetime_received": (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat(),
+        "datetime_received": (
+            datetime.now(timezone.utc) - timedelta(hours=6)
+        ).isoformat(),
         "sender": {"email_address": "user@company.com"},
         "subject": "Out of Office",
         "text_body": """
@@ -62,15 +68,17 @@ def create_sample_emails():
         
         Best regards,
         User
-        """
+        """,
     }
     emails.append(email3)
-    
+
     # Email 4: Long thread
     email4 = {
         "msg_id": "msg-004",
         "conversation_id": "conv-004",
-        "datetime_received": (datetime.now(timezone.utc) - timedelta(hours=8)).isoformat(),
+        "datetime_received": (
+            datetime.now(timezone.utc) - timedelta(hours=8)
+        ).isoformat(),
         "sender": {"email_address": "team@company.com"},
         "subject": "Project Discussion",
         "text_body": """
@@ -88,15 +96,17 @@ def create_sample_emails():
         
         Best regards,
         Team
-        """
+        """,
     }
     emails.append(email4)
-    
+
     # Email 5: DSN (Delivery Status Notification)
     email5 = {
         "msg_id": "msg-005",
         "conversation_id": "conv-005",
-        "datetime_received": (datetime.now(timezone.utc) - timedelta(hours=10)).isoformat(),
+        "datetime_received": (
+            datetime.now(timezone.utc) - timedelta(hours=10)
+        ).isoformat(),
         "sender": {"email_address": "system@company.com"},
         "subject": "Delivery Status Notification",
         "text_body": """
@@ -106,10 +116,10 @@ def create_sample_emails():
         Please check the recipient address.
         
         System Administrator
-        """
+        """,
     }
     emails.append(email5)
-    
+
     return emails
 
 
@@ -117,10 +127,10 @@ def create_email_files():
     """Create actual email files for testing."""
     emails_dir = Path("emails")
     emails_dir.mkdir(exist_ok=True)
-    
+
     # Create various email types
     email_files = []
-    
+
     # 1. Plain text actionable email
     email1_content = """From: manager@company.com
 To: user@company.com
@@ -136,10 +146,10 @@ Best regards,
 Manager
 """
     email1_path = emails_dir / "urgent_action.txt"
-    with open(email1_path, 'w', encoding='utf-8') as f:
+    with open(email1_path, "w", encoding="utf-8") as f:
         f.write(email1_content)
     email_files.append(str(email1_path))
-    
+
     # 2. HTML email with actionable content
     email2_content = """From: colleague@company.com
 To: user@company.com
@@ -157,10 +167,10 @@ Content-Type: text/html; charset=utf-8
 </html>
 """
     email2_path = emails_dir / "meeting_request.html"
-    with open(email2_path, 'w', encoding='utf-8') as f:
+    with open(email2_path, "w", encoding="utf-8") as f:
         f.write(email2_content)
     email_files.append(str(email2_path))
-    
+
     # 3. Cyrillic email
     email3_content = """From: коллега@компания.рф
 To: пользователь@компания.рф
@@ -176,10 +186,10 @@ Date: Mon, 15 Jan 2024 16:45:00 +0000
 Коллега
 """
     email3_path = emails_dir / "cyrillic_action.txt"
-    with open(email3_path, 'w', encoding='utf-8') as f:
+    with open(email3_path, "w", encoding="utf-8") as f:
         f.write(email3_content)
     email_files.append(str(email3_path))
-    
+
     # 4. Out of Office auto-reply
     email4_content = """From: noreply@company.com
 To: user@company.com
@@ -194,10 +204,10 @@ Best regards,
 User
 """
     email4_path = emails_dir / "out_of_office.txt"
-    with open(email4_path, 'w', encoding='utf-8') as f:
+    with open(email4_path, "w", encoding="utf-8") as f:
         f.write(email4_content)
     email_files.append(str(email4_path))
-    
+
     # 5. Delivery Status Notification
     email5_content = """From: postmaster@company.com
 To: user@company.com
@@ -214,10 +224,10 @@ The recipient's mailbox is full.
 System Administrator
 """
     email5_path = emails_dir / "dsn.txt"
-    with open(email5_path, 'w', encoding='utf-8') as f:
+    with open(email5_path, "w", encoding="utf-8") as f:
         f.write(email5_content)
     email_files.append(str(email5_path))
-    
+
     # 6. Newsletter (non-actionable)
     email6_content = """From: newsletter@company.com
 To: user@company.com
@@ -236,10 +246,10 @@ FYI - No action required.
 Newsletter Team
 """
     email6_path = emails_dir / "newsletter.txt"
-    with open(email6_path, 'w', encoding='utf-8') as f:
+    with open(email6_path, "w", encoding="utf-8") as f:
         f.write(email6_content)
     email_files.append(str(email6_path))
-    
+
     # 7. Long thread with quotes
     email7_content = """From: team@company.com
 To: user@company.com
@@ -261,10 +271,10 @@ Best regards,
 Team
 """
     email7_path = emails_dir / "thread_with_quotes.txt"
-    with open(email7_path, 'w', encoding='utf-8') as f:
+    with open(email7_path, "w", encoding="utf-8") as f:
         f.write(email7_content)
     email_files.append(str(email7_path))
-    
+
     # 8. HTML email with tracking pixels
     email8_content = """From: marketing@company.com
 To: user@company.com
@@ -283,10 +293,10 @@ Content-Type: text/html; charset=utf-8
 </html>
 """
     email8_path = emails_dir / "html_with_tracking.html"
-    with open(email8_path, 'w', encoding='utf-8') as f:
+    with open(email8_path, "w", encoding="utf-8") as f:
         f.write(email8_content)
     email_files.append(str(email8_path))
-    
+
     # 9. Email with deadline
     email9_content = """From: boss@company.com
 To: user@company.com
@@ -304,10 +314,10 @@ Thanks,
 Boss
 """
     email9_path = emails_dir / "deadline.txt"
-    with open(email9_path, 'w', encoding='utf-8') as f:
+    with open(email9_path, "w", encoding="utf-8") as f:
         f.write(email9_content)
     email_files.append(str(email9_path))
-    
+
     # 10. Email with multiple recipients
     email10_content = """From: coordinator@company.com
 To: user@company.com, colleague@company.com
@@ -329,55 +339,49 @@ Best regards,
 Coordinator
 """
     email10_path = emails_dir / "team_meeting.txt"
-    with open(email10_path, 'w', encoding='utf-8') as f:
+    with open(email10_path, "w", encoding="utf-8") as f:
         f.write(email10_content)
     email_files.append(str(email10_path))
-    
+
     return email_files
 
 
 def create_config_fixtures():
     """Create sample configuration fixtures."""
     configs = {}
-    
+
     # Calendar day config
     configs["calendar_day"] = {
-        "time": {
-            "timezone": "UTC",
-            "window_type": "calendar_day"
-        },
+        "time": {"timezone": "UTC", "window_type": "calendar_day"},
         "ews": {
             "endpoint": "https://mail.company.com/EWS/Exchange.asmx",
             "user_upn": "test@company.com",
-            "sync_state_path": "/tmp/test.state"
+            "sync_state_path": "/tmp/test.state",
         },
         "llm": {
             "endpoint": "https://api.openai.com/v1/chat/completions",
-            "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+            "model": "qwen35-397b-a17b",
             "max_retries": 3,
-            "timeout": 30
-        }
+            "timeout": 30,
+        },
     }
-    
+
     # Rolling 24h config
     configs["rolling_24h"] = {
-        "time": {
-            "timezone": "UTC",
-            "window_type": "rolling_24h"
-        },
+        "time": {"timezone": "UTC", "window_type": "rolling_24h"},
         "ews": {
             "endpoint": "https://mail.company.com/EWS/Exchange.asmx",
             "user_upn": "test@company.com",
-            "sync_state_path": "/tmp/test.state"
+            "sync_state_path": "/tmp/test.state",
         },
         "llm": {
             "endpoint": "https://api.openai.com/v1/chat/completions",
-            "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+            "model": "qwen35-397b-a17b",
             "max_retries": 3,
-            "timeout": 30
-        }
+            "timeout": 30,
+        },
     }
-    
+
     return configs
 
 
@@ -385,20 +389,21 @@ if __name__ == "__main__":
     # Generate fixture files
     emails = create_sample_emails()
     configs = create_config_fixtures()
-    
+
     # Create email files
     email_files = create_email_files()
-    
+
     # Save email fixtures
     with open("emails.json", "w") as f:
         json.dump(emails, f, indent=2)
-    
+
     # Save config fixtures
     for name, config in configs.items():
         with open(f"config_{name}.yaml", "w") as f:
             import yaml
+
             yaml.dump(config, f, default_flow_style=False)
-    
+
     print("Fixture files generated:")
     print("- emails.json")
     print("- config_calendar_day.yaml")

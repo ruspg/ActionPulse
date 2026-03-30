@@ -51,9 +51,7 @@ def test_ping_mattermost_webhook_custom_message(monkeypatch):
     monkeypatch.setenv("MM_WEBHOOK_URL", "https://mm.example/hooks/abc")
     monkeypatch.setattr("digest_core.deliver.mattermost.httpx.Client", FakeClient)
 
-    status = ping_mattermost_webhook(
-        MattermostDeliverConfig(), text="**custom** ping"
-    )
+    status = ping_mattermost_webhook(MattermostDeliverConfig(), text="**custom** ping")
     assert status == 200
 
 

@@ -32,7 +32,7 @@ jobs:
           cache-dependency-glob: 'digest-core/pyproject.toml'
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-groups
 
       - name: Ruff lint
         run: uv run ruff check src/ tests/
@@ -55,7 +55,7 @@ jobs:
           cache-dependency-glob: 'digest-core/pyproject.toml'
 
       - name: Install dependencies
-        run: uv sync
+        run: uv sync --all-groups
 
       - name: Run tests
         run: uv run pytest tests/ -v

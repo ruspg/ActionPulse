@@ -12,8 +12,14 @@ from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.gateway import LLMGateway, TokenBudgetExceeded
 
 
-def _mock_response(content: str, *, status_code: int = 200, prompt_tokens: int = 100,
-                   completion_tokens: int = 50, headers: dict | None = None) -> Mock:
+def _mock_response(
+    content: str,
+    *,
+    status_code: int = 200,
+    prompt_tokens: int = 100,
+    completion_tokens: int = 50,
+    headers: dict | None = None
+) -> Mock:
     response = Mock()
     response.status_code = status_code
     response.headers = headers or {}
@@ -34,7 +40,7 @@ def gateway(monkeypatch):
     monkeypatch.setenv("LLM_TOKEN", "test-token")
     config = LLMConfig(
         endpoint="https://api.openai.com/v1/chat/completions",
-        model="qwen3.5-397b",
+        model="qwen35-397b-a17b",
         timeout_s=30,
     )
     return LLMGateway(config)
@@ -59,7 +65,11 @@ def test_quality_retry_empty_sections(gateway):
     content_response = _mock_response('{"sections": [{"title": "Test", "items": []}]}')
     gateway.client.post = Mock(side_effect=[empty_response, content_response])
 
-    evidence = [EvidenceChunk(evidence_id="ev-1", content="Important action item", priority_score=2.0)]
+    evidence = [
+        EvidenceChunk(
+            evidence_id="ev-1", content="Important action item", priority_score=2.0
+        )
+    ]
     result = gateway.extract_actions(evidence, "Return strict JSON", "test-trace-id")
 
     assert result["sections"] == [{"title": "Test", "items": []}]
@@ -89,9 +99,7 @@ def test_network_error_propagation(gateway):
 
 def test_evidence_formatting(gateway):
     """Formatted request payload should include both system and user messages."""
-    gateway.client.post = Mock(
-        return_value=_mock_response('{"sections": []}')
-    )
+    gateway.client.post = Mock(return_value=_mock_response('{"sections": []}'))
     evidence = [
         EvidenceChunk(
             evidence_id="ev-1",
@@ -126,7 +134,7 @@ class TestTokenBudgetEnforcement:
         monkeypatch.setenv("LLM_TOKEN", "test-token")
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
             max_tokens_per_run=100,  # very low budget
         )
@@ -158,7 +166,7 @@ class TestTokenBudgetEnforcement:
         monkeypatch.setenv("LLM_TOKEN", "test-token")
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
             max_tokens_per_run=500,
         )
@@ -190,7 +198,7 @@ class TestTokenBudgetEnforcement:
         monkeypatch.setenv("LLM_TOKEN", "test-token")
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
             max_tokens_per_run=300,
         )
@@ -250,19 +258,21 @@ class TestLLMReplayMode:
         record_file = tmp_path / "llm-recording.json"
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
         )
         gw = LLMGateway(config, record_llm=str(record_file))
 
-        resp = _mock_response('{"sections":[]}', prompt_tokens=100, completion_tokens=50)
+        resp = _mock_response(
+            '{"sections":[]}', prompt_tokens=100, completion_tokens=50
+        )
         gw.client.post = Mock(return_value=resp)
 
         gw.extract_actions(self._make_evidence(), "Return strict JSON", "trace-rec")
 
         assert record_file.exists()
         recording = json.loads(record_file.read_text())
-        assert recording["meta"]["model"] == "qwen3.5-397b"
+        assert recording["meta"]["model"] == "qwen35-397b-a17b"
         assert len(recording["responses"]) == 1
         assert recording["responses"][0]["data"] == {"sections": []}
 
@@ -271,7 +281,7 @@ class TestLLMReplayMode:
         monkeypatch.setenv("LLM_TOKEN", "test-token")
         replay_file = tmp_path / "llm-recording.json"
         recorded = {
-            "meta": {"model": "qwen3.5-397b"},
+            "meta": {"model": "qwen35-397b-a17b"},
             "responses": [
                 {
                     "trace_id": "trace-orig",
@@ -291,7 +301,7 @@ class TestLLMReplayMode:
 
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
         )
         gw = LLMGateway(config, replay_llm=str(replay_file))
@@ -312,7 +322,7 @@ class TestLLMReplayMode:
 
         config = LLMConfig(
             endpoint="https://api.example.com/v1/chat",
-            model="qwen3.5-397b",
+            model="qwen35-397b-a17b",
             timeout_s=30,
         )
         gw = LLMGateway(config, replay_llm=str(replay_file))

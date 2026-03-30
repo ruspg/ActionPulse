@@ -199,13 +199,16 @@ cp configs/config.example.yaml configs/config.yaml
 2. Set environment variables:
 ```bash
 export EWS_PASSWORD="your_ews_password"
-export LLM_TOKEN="your_llm_token"
 export EWS_USER_UPN="user@corp.com"
+export EWS_USER_LOGIN="user"
+export EWS_USER_DOMAIN="corp.com"
 export EWS_ENDPOINT="https://ews.corp.com/EWS/Exchange.asmx"
+export LLM_TOKEN="your_llm_token"
 export LLM_ENDPOINT="https://llm-gw.corp.com/api/v1/chat"
+export MM_WEBHOOK_URL="https://mm.corp.com/hooks/xxx"  # optional
 ```
 
-Or create `.env` file with these variables.
+Or create `.env` file with these variables (the setup wizard generates it automatically).
 
 3. Update `configs/config.yaml` with your settings:
    - EWS endpoint and credentials
@@ -276,7 +279,7 @@ done
 python3.11 -m digest_core.cli run --dry-run
 
 # Test with different model
-python3.11 -m digest_core.cli run --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --dry-run
+python3.11 -m digest_core.cli run --model "qwen35-397b-a17b" --dry-run
 ```
 
 **Multiple Mailboxes (if configured):**

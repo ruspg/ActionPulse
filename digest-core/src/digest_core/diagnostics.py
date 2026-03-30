@@ -15,7 +15,6 @@ from typing import Any, Dict, Optional
 import httpx
 import yaml
 
-
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 
 

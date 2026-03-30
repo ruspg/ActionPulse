@@ -30,7 +30,6 @@ from digest_core.observability.metrics import MetricsCollector
 from digest_core.select.context import ContextSelector
 from digest_core.threads.build import ThreadBuilder
 
-
 PIPELINE_VERSION = "1.1.0"
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 PROMPTS_DIR = PACKAGE_ROOT / "prompts"
