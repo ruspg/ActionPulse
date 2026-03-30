@@ -4,6 +4,7 @@ LLM Gateway client for processing evidence chunks with retry logic.
 
 import json
 import time
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 import httpx
 import tenacity
@@ -61,6 +62,10 @@ class RetryableLLMError(Exception):
         self.wait_seconds = max(wait_seconds, MIN_LLM_INTERVAL_SECONDS)
 
 
+class TokenBudgetExceeded(Exception):
+    """Raised when a run's cumulative token usage exceeds ``max_tokens_per_run``."""
+
+
 class LLMGateway:
     """Client for LLM Gateway API with retry logic and schema validation."""
 
@@ -70,6 +75,8 @@ class LLMGateway:
         enable_degrade: bool = True,
         degrade_mode: str = "extractive",
         metrics: MetricsCollector = None,
+        record_llm: Optional[str] = None,
+        replay_llm: Optional[str] = None,
     ):
         self.config = config
         self.enable_degrade = enable_degrade
@@ -78,6 +85,13 @@ class LLMGateway:
         self.last_latency_ms = 0
         self.last_request_meta: Dict[str, Any] = {}
         self._last_call_started_at = 0.0
+        self._run_tokens_used = 0
+        self._record_path = Path(record_llm) if record_llm else None
+        self._replay_data: Optional[Dict[str, Any]] = None
+        self._replay_cursor = 0
+        if replay_llm:
+            replay_path = Path(replay_llm)
+            self._replay_data = json.loads(replay_path.read_text(encoding="utf-8"))
         self.client = httpx.Client(
             timeout=httpx.Timeout(self.config.timeout_s), headers=self.config.headers
         )
@@ -267,7 +281,11 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
     def _make_request_once(
         self, messages: List[Dict[str, str]], trace_id: str
     ) -> Dict[str, Any]:
-        """Perform a single HTTP request to the LLM gateway."""
+        """Perform a single HTTP request to the LLM gateway (or replay from file)."""
+        # ── REPLAY MODE ──────────────────────────────────────────────
+        if self._replay_data is not None:
+            return self._replay_next(trace_id)
+
         start_time = time.time()
         tokens_in = None
         tokens_out = None
@@ -384,11 +402,30 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
         if tokens_out is None:
             tokens_out = usage.get("completion_tokens", 0)
 
+        call_tokens = (tokens_in or 0) + (tokens_out or 0)
+        self._run_tokens_used += call_tokens
+
+        if (
+            self.config.max_tokens_per_run
+            and self._run_tokens_used > self.config.max_tokens_per_run
+        ):
+            logger.warning(
+                "Token budget exceeded for this run",
+                run_tokens_used=self._run_tokens_used,
+                max_tokens_per_run=self.config.max_tokens_per_run,
+                trace_id=trace_id,
+            )
+            raise TokenBudgetExceeded(
+                f"Run token budget exhausted: {self._run_tokens_used}"
+                f" > {self.config.max_tokens_per_run}"
+            )
+
         logger.info(
             "LLM request successful",
             latency_ms=self.last_latency_ms,
             tokens_in=tokens_in or 0,
             tokens_out=tokens_out or 0,
+            run_tokens_used=self._run_tokens_used,
             trace_id=trace_id,
         )
 
@@ -398,13 +435,20 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
             "http_status": response.status_code,
             "latency_ms": self.last_latency_ms,
             "validation_errors": 0,
+            "run_tokens_used": self._run_tokens_used,
         }
-        return {
+        result = {
             "trace_id": trace_id,
             "latency_ms": self.last_latency_ms,
             "data": parsed_content,
             "meta": meta,
         }
+
+        # ── RECORD MODE ──────────────────────────────────────────────
+        if self._record_path is not None:
+            self._record_response(messages, result)
+
+        return result
 
     def _wait_for_rate_limit(self) -> None:
         """Enforce the minimum spacing between LLM calls."""
@@ -414,6 +458,50 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
         remaining = MIN_LLM_INTERVAL_SECONDS - elapsed
         if remaining > 0:
             time.sleep(remaining)
+
+    def _replay_next(self, trace_id: str) -> Dict[str, Any]:
+        """Return the next recorded LLM response from the replay file."""
+        entries = self._replay_data.get("responses", [])
+        if self._replay_cursor >= len(entries):
+            raise RuntimeError(
+                f"LLM replay exhausted: only {len(entries)} responses recorded, "
+                f"but call #{self._replay_cursor + 1} was requested"
+            )
+        entry = entries[self._replay_cursor]
+        self._replay_cursor += 1
+        logger.info(
+            "Replaying recorded LLM response",
+            replay_index=self._replay_cursor - 1,
+            trace_id=trace_id,
+        )
+        self.last_latency_ms = entry.get("meta", {}).get("latency_ms", 0)
+
+        tokens_in = entry.get("meta", {}).get("tokens_in", 0)
+        tokens_out = entry.get("meta", {}).get("tokens_out", 0)
+        self._run_tokens_used += tokens_in + tokens_out
+
+        return entry
+
+    def _record_response(
+        self, messages: List[Dict[str, str]], result: Dict[str, Any]
+    ) -> None:
+        """Append an LLM response to the record file."""
+        if self._record_path.exists():
+            existing = json.loads(self._record_path.read_text(encoding="utf-8"))
+        else:
+            existing = {"meta": {"model": self.config.model}, "responses": []}
+
+        existing["responses"].append(result)
+
+        self._record_path.parent.mkdir(parents=True, exist_ok=True)
+        self._record_path.write_text(
+            json.dumps(existing, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        logger.info(
+            "Recorded LLM response",
+            record_path=str(self._record_path),
+            response_count=len(existing["responses"]),
+        )
 
     @staticmethod
     def _retry_after_seconds(retry_after: Optional[str]) -> float:

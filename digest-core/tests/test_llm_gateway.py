@@ -2,13 +2,14 @@
 Test LLM gateway against the current retry and response contract.
 """
 
+import json
 from unittest.mock import Mock
 
 import pytest
 
 from digest_core.config import LLMConfig
 from digest_core.evidence.split import EvidenceChunk
-from digest_core.llm.gateway import LLMGateway
+from digest_core.llm.gateway import LLMGateway, TokenBudgetExceeded
 
 
 def _mock_response(content: str, *, status_code: int = 200, prompt_tokens: int = 100,
@@ -115,3 +116,208 @@ def test_evidence_formatting(gateway):
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
+
+
+class TestTokenBudgetEnforcement:
+    """Verify max_tokens_per_run enforcement (COMMON-17 / TD-006)."""
+
+    def test_budget_exceeded_raises(self, monkeypatch):
+        """Gateway raises TokenBudgetExceeded when usage exceeds max_tokens_per_run."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=100,  # very low budget
+        )
+        gw = LLMGateway(config)
+
+        # Simulate a response whose token usage exceeds the budget
+        resp = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=80,
+            completion_tokens=30,  # 110 total > 100 limit
+        )
+        gw.client.post = Mock(return_value=resp)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        with pytest.raises(TokenBudgetExceeded):
+            gw.extract_actions(evidence, "Return strict JSON", "trace-budget")
+
+    def test_budget_not_exceeded_passes(self, monkeypatch):
+        """Gateway succeeds when usage stays within max_tokens_per_run."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=500,
+        )
+        gw = LLMGateway(config)
+
+        resp = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=100,
+            completion_tokens=50,  # 150 total < 500 limit
+        )
+        gw.client.post = Mock(return_value=resp)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        result = gw.extract_actions(evidence, "Return strict JSON", "trace-ok")
+        assert "sections" in result
+        assert gw._run_tokens_used == 150
+
+    def test_cumulative_tracking(self, monkeypatch):
+        """Token usage accumulates across multiple calls in a single gateway instance."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=300,
+        )
+        gw = LLMGateway(config)
+
+        # First call: 150 tokens (within budget)
+        resp1 = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=100,
+            completion_tokens=50,
+        )
+        gw.client.post = Mock(return_value=resp1)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        gw.extract_actions(evidence, "Return strict JSON", "trace-1")
+        assert gw._run_tokens_used == 150
+
+        # Second call: another 200 tokens (cumulative 350 > 300)
+        resp2 = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=150,
+            completion_tokens=50,
+        )
+        gw.client.post = Mock(return_value=resp2)
+
+        with pytest.raises(TokenBudgetExceeded):
+            gw.extract_actions(evidence, "Return strict JSON", "trace-2")
+
+
+class TestLLMReplayMode:
+    """Verify --record-llm / --replay-llm (COMMON-34)."""
+
+    @staticmethod
+    def _make_evidence():
+        return [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+    def test_record_creates_file(self, monkeypatch, tmp_path):
+        """--record-llm writes responses to a JSON file."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        record_file = tmp_path / "llm-recording.json"
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+        )
+        gw = LLMGateway(config, record_llm=str(record_file))
+
+        resp = _mock_response('{"sections":[]}', prompt_tokens=100, completion_tokens=50)
+        gw.client.post = Mock(return_value=resp)
+
+        gw.extract_actions(self._make_evidence(), "Return strict JSON", "trace-rec")
+
+        assert record_file.exists()
+        recording = json.loads(record_file.read_text())
+        assert recording["meta"]["model"] == "qwen3.5-397b"
+        assert len(recording["responses"]) == 1
+        assert recording["responses"][0]["data"] == {"sections": []}
+
+    def test_replay_returns_recorded_response(self, monkeypatch, tmp_path):
+        """--replay-llm returns previously recorded LLM responses."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        replay_file = tmp_path / "llm-recording.json"
+        recorded = {
+            "meta": {"model": "qwen3.5-397b"},
+            "responses": [
+                {
+                    "trace_id": "trace-orig",
+                    "latency_ms": 42,
+                    "data": {"sections": [{"title": "Мои действия", "items": []}]},
+                    "meta": {
+                        "tokens_in": 80,
+                        "tokens_out": 20,
+                        "http_status": 200,
+                        "latency_ms": 42,
+                        "validation_errors": 0,
+                    },
+                }
+            ],
+        }
+        replay_file.write_text(json.dumps(recorded))
+
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+        )
+        gw = LLMGateway(config, replay_llm=str(replay_file))
+
+        # Should NOT make an HTTP call
+        gw.client.post = Mock(side_effect=RuntimeError("should not be called"))
+        result = gw.extract_actions(
+            self._make_evidence(), "Return strict JSON", "trace-replay"
+        )
+        assert "sections" in result
+        gw.client.post.assert_not_called()
+
+    def test_replay_exhausted_raises(self, monkeypatch, tmp_path):
+        """Replay raises RuntimeError when all recorded responses are consumed."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        replay_file = tmp_path / "llm-recording.json"
+        replay_file.write_text(json.dumps({"meta": {}, "responses": []}))
+
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+        )
+        gw = LLMGateway(config, replay_llm=str(replay_file))
+
+        with pytest.raises(RuntimeError, match="replay exhausted"):
+            gw.extract_actions(
+                self._make_evidence(), "Return strict JSON", "trace-empty"
+            )
