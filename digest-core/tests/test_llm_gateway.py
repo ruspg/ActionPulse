@@ -8,7 +8,7 @@ import pytest
 
 from digest_core.config import LLMConfig
 from digest_core.evidence.split import EvidenceChunk
-from digest_core.llm.gateway import LLMGateway
+from digest_core.llm.gateway import LLMGateway, TokenBudgetExceeded
 
 
 def _mock_response(content: str, *, status_code: int = 200, prompt_tokens: int = 100,
@@ -115,3 +115,114 @@ def test_evidence_formatting(gateway):
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
+
+
+class TestTokenBudgetEnforcement:
+    """Verify max_tokens_per_run enforcement (COMMON-17 / TD-006)."""
+
+    def test_budget_exceeded_raises(self, monkeypatch):
+        """Gateway raises TokenBudgetExceeded when usage exceeds max_tokens_per_run."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=100,  # very low budget
+        )
+        gw = LLMGateway(config)
+
+        # Simulate a response whose token usage exceeds the budget
+        resp = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=80,
+            completion_tokens=30,  # 110 total > 100 limit
+        )
+        gw.client.post = Mock(return_value=resp)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        with pytest.raises(TokenBudgetExceeded):
+            gw.extract_actions(evidence, "Return strict JSON", "trace-budget")
+
+    def test_budget_not_exceeded_passes(self, monkeypatch):
+        """Gateway succeeds when usage stays within max_tokens_per_run."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=500,
+        )
+        gw = LLMGateway(config)
+
+        resp = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=100,
+            completion_tokens=50,  # 150 total < 500 limit
+        )
+        gw.client.post = Mock(return_value=resp)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        result = gw.extract_actions(evidence, "Return strict JSON", "trace-ok")
+        assert "sections" in result
+        assert gw._run_tokens_used == 150
+
+    def test_cumulative_tracking(self, monkeypatch):
+        """Token usage accumulates across multiple calls in a single gateway instance."""
+        monkeypatch.setenv("LLM_TOKEN", "test-token")
+        config = LLMConfig(
+            endpoint="https://api.example.com/v1/chat",
+            model="qwen3.5-397b",
+            timeout_s=30,
+            max_tokens_per_run=300,
+        )
+        gw = LLMGateway(config)
+
+        # First call: 150 tokens (within budget)
+        resp1 = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=100,
+            completion_tokens=50,
+        )
+        gw.client.post = Mock(return_value=resp1)
+
+        evidence = [
+            EvidenceChunk(
+                evidence_id="ev-1",
+                content="test",
+                message_metadata={"from": "a@b", "subject": "X"},
+                source_ref={"msg_id": "m-1"},
+                msg_id="m-1",
+            ),
+        ]
+
+        gw.extract_actions(evidence, "Return strict JSON", "trace-1")
+        assert gw._run_tokens_used == 150
+
+        # Second call: another 200 tokens (cumulative 350 > 300)
+        resp2 = _mock_response(
+            '{"sections":[]}',
+            prompt_tokens=150,
+            completion_tokens=50,
+        )
+        gw.client.post = Mock(return_value=resp2)
+
+        with pytest.raises(TokenBudgetExceeded):
+            gw.extract_actions(evidence, "Return strict JSON", "trace-2")

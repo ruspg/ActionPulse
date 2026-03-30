@@ -61,6 +61,10 @@ class RetryableLLMError(Exception):
         self.wait_seconds = max(wait_seconds, MIN_LLM_INTERVAL_SECONDS)
 
 
+class TokenBudgetExceeded(Exception):
+    """Raised when a run's cumulative token usage exceeds ``max_tokens_per_run``."""
+
+
 class LLMGateway:
     """Client for LLM Gateway API with retry logic and schema validation."""
 
@@ -78,6 +82,7 @@ class LLMGateway:
         self.last_latency_ms = 0
         self.last_request_meta: Dict[str, Any] = {}
         self._last_call_started_at = 0.0
+        self._run_tokens_used = 0
         self.client = httpx.Client(
             timeout=httpx.Timeout(self.config.timeout_s), headers=self.config.headers
         )
@@ -384,11 +389,30 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
         if tokens_out is None:
             tokens_out = usage.get("completion_tokens", 0)
 
+        call_tokens = (tokens_in or 0) + (tokens_out or 0)
+        self._run_tokens_used += call_tokens
+
+        if (
+            self.config.max_tokens_per_run
+            and self._run_tokens_used > self.config.max_tokens_per_run
+        ):
+            logger.warning(
+                "Token budget exceeded for this run",
+                run_tokens_used=self._run_tokens_used,
+                max_tokens_per_run=self.config.max_tokens_per_run,
+                trace_id=trace_id,
+            )
+            raise TokenBudgetExceeded(
+                f"Run token budget exhausted: {self._run_tokens_used}"
+                f" > {self.config.max_tokens_per_run}"
+            )
+
         logger.info(
             "LLM request successful",
             latency_ms=self.last_latency_ms,
             tokens_in=tokens_in or 0,
             tokens_out=tokens_out or 0,
+            run_tokens_used=self._run_tokens_used,
             trace_id=trace_id,
         )
 
@@ -398,6 +422,7 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
             "http_status": response.status_code,
             "latency_ms": self.last_latency_ms,
             "validation_errors": 0,
+            "run_tokens_used": self._run_tokens_used,
         }
         return {
             "trace_id": trace_id,
