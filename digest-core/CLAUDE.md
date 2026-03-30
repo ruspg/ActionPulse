@@ -5,6 +5,10 @@ Python 3.11 package. Daily email digest pipeline: EWS → normalize → threads 
 ## Commands
 
 ```bash
+# Git preflight
+git fetch origin --prune
+git status --short --branch
+
 # Setup
 uv sync                              # Install dependencies
 make setup                           # Same via Makefile
@@ -69,6 +73,13 @@ make test    # All tests use mocks, run anywhere
 - Fixtures in `tests/fixtures/emails/` (10 email samples)
 - Mock LLM in `tests/mock_llm_gateway.py`
 - **Real EWS/LLM tests**: corp network only. Use replay mode for offline dev.
+
+## Branching Preflight
+
+- Before any edits, confirm the branch is based on current `origin/main`.
+- If `git status --short --branch` shows detached `HEAD`, stop and create a real branch first.
+- If this worktree cannot fetch, use a fresh clone/worktree inside the writable workspace rather than continuing on stale git state.
+- Only move Plane issues or open a PR after the branch base and `make test` baseline are verified on that branch.
 
 ## Gotchas
 
