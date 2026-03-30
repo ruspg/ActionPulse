@@ -11,26 +11,42 @@ from typing import Any, Dict
 from datetime import datetime
 
 
+def _resolve_log_file(log_file: str | None) -> Path | None:
+    """Resolve a writable log file path, falling back gracefully when needed."""
+    if log_file is not None:
+        candidate = Path(log_file)
+        candidate.parent.mkdir(parents=True, exist_ok=True)
+        return candidate
+
+    candidate_dirs = [
+        Path.home() / ".digest-logs",
+        Path.cwd() / ".digest-logs",
+        Path("/tmp/digest-logs"),
+    ]
+
+    for log_dir in candidate_dirs:
+        try:
+            log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            return log_dir / f"run-{timestamp}.log"
+        except OSError:
+            continue
+
+    return None
+
+
 def setup_logging(log_level: str = "INFO", log_file: str = None) -> None:
     """Setup structured logging with structlog."""
-    
-    # Create log directory if it doesn't exist
-    log_dir = Path.home() / ".digest-logs"
-    log_dir.mkdir(exist_ok=True)
-    
-    # Generate log file name if not provided
-    if log_file is None:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        log_file = log_dir / f"run-{timestamp}.log"
-    else:
-        log_file = Path(log_file)
-        log_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
+    resolved_log_file = _resolve_log_file(log_file)
+
     # Configure standard library logging with both console and file output
-    handlers = [
-        logging.StreamHandler(sys.stdout),  # Console output
-        logging.FileHandler(log_file, encoding='utf-8')  # File output
-    ]
+    handlers = [logging.StreamHandler(sys.stdout)]
+    if resolved_log_file is not None:
+        try:
+            handlers.append(logging.FileHandler(resolved_log_file, encoding='utf-8'))
+        except OSError:
+            resolved_log_file = None
     
     logging.basicConfig(
         format="%(message)s",
@@ -39,7 +55,10 @@ def setup_logging(log_level: str = "INFO", log_file: str = None) -> None:
     )
     
     # Log the log file location
-    print(f"Log file: {log_file}")
+    if resolved_log_file is not None:
+        print(f"Log file: {resolved_log_file}")
+    else:
+        print("Log file: disabled")
     
     # Configure structlog
     structlog.configure(

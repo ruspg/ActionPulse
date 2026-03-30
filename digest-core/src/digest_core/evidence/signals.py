@@ -83,10 +83,10 @@ def extract_action_verbs(text: str) -> List[str]:
     text_lower = text.lower()
     found_verbs = []
     
-    for verb in ALL_ACTION_VERBS:
-        if verb in text_lower:
-            if verb not in found_verbs:
-                found_verbs.append(verb)
+    for verb in sorted(ALL_ACTION_VERBS, key=len, reverse=True):
+        pattern = rf"(?<!\w){_stdre.escape(verb)}(?!\w)"
+        if _stdre.search(pattern, text_lower, flags=_stdre.IGNORECASE | _stdre.UNICODE):
+            found_verbs.append(verb)
     
     return found_verbs
 
@@ -224,4 +224,3 @@ def calculate_sender_rank(sender_email: str) -> int:
     # - 2 = manager/important
     # - 3 = system/automated
     return 1
-

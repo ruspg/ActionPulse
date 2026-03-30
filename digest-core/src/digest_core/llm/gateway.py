@@ -10,7 +10,6 @@ import httpx
 import tenacity
 import structlog
 import pytz
-from jinja2 import Environment, FileSystemLoader
 
 def minimal_json_cleanup(text: str) -> str:
     """
@@ -47,7 +46,7 @@ from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.schemas import Digest, EnhancedDigest, EnhancedDigestV3
 from digest_core.llm.date_utils import get_current_datetime_in_tz
 from digest_core.llm.degrade import extractive_fallback
-from digest_core.llm.prompt_registry import get_prompt_template_path
+from digest_core.llm.prompt_registry import get_prompt_template_path, get_prompts_dir
 from digest_core.observability.metrics import MetricsCollector
 
 logger = structlog.get_logger()
@@ -600,7 +599,9 @@ Signals: action_verbs=[{action_verbs_str}]; dates=[{dates_str}]; contains_questi
         current_datetime = get_current_datetime_in_tz(tz_name)
         
         # Load and render prompt
-        prompts_dir = Path("prompts")
+        from jinja2 import Environment, FileSystemLoader
+
+        prompts_dir = get_prompts_dir()
         env = Environment(loader=FileSystemLoader(prompts_dir))
         template_name = f"summarize.{prompt_version}"
         try:

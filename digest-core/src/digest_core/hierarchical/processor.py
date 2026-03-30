@@ -12,7 +12,6 @@ from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 import structlog
-from jinja2 import Environment, FileSystemLoader
 
 from digest_core.config import HierarchicalConfig
 from digest_core.threads.build import ConversationThread
@@ -20,7 +19,7 @@ from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.schemas import ThreadSummary, EnhancedDigest
 from digest_core.llm.gateway import LLMGateway
 from digest_core.hierarchical.metrics import HierarchicalMetrics
-from digest_core.llm.prompt_registry import get_prompt_template_path
+from digest_core.llm.prompt_registry import get_prompt_template_path, get_prompts_dir
 
 logger = structlog.get_logger()
 
@@ -419,11 +418,13 @@ class HierarchicalProcessor:
         except KeyError as exc:
             raise ValueError("Unknown thread summary prompt template: thread_summarize.v1") from exc
         try:
-            env = Environment(loader=FileSystemLoader(Path("prompts")))
+            from jinja2 import Environment, FileSystemLoader
+            env = Environment(loader=FileSystemLoader(get_prompts_dir()))
             template = env.get_template(template_rel_path)
         except Exception:
             # Try relative to digest-core directory
-            env = Environment(loader=FileSystemLoader(Path("digest-core/prompts")))
+            from jinja2 import Environment, FileSystemLoader
+            env = Environment(loader=FileSystemLoader(get_prompts_dir()))
             template = env.get_template(template_rel_path)
         
         rendered = template.render(
@@ -824,4 +825,3 @@ class HierarchicalProcessor:
                    deadlines=len(result["digest"].deadlines_meetings))
         
         return result["digest"]
-

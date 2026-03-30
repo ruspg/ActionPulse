@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict
 
 
@@ -13,9 +14,15 @@ PROMPT_TEMPLATE_MAP: Dict[str, str] = {
     "summarize.v1": "summarize/v1/default.j2",
     "summarize.en.v1": "summarize/v1/en.j2",
     "thread_summarize.v1": "thread_summarize/v1/default.j2",
-    "extract_actions.v1": "extract_actions/v1/default.j2",
-    "extract_actions.en.v1": "extract_actions/v1/en.j2",
+    "extract_actions.v1": "extract_actions/v1/default.txt",
+    "extract_actions.en.v1": "extract_actions/v1/en.txt",
 }
+
+
+def get_prompts_dir() -> Path:
+    """Return the package-root prompts directory independent of cwd."""
+
+    return Path(__file__).resolve().parents[3] / "prompts"
 
 
 def get_prompt_template_path(template_name: str) -> str:

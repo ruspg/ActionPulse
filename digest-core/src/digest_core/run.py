@@ -31,7 +31,7 @@ from digest_core.evidence.citations import CitationBuilder, CitationValidator, e
 from digest_core.evidence.actions import ActionMentionExtractor, enrich_actions_with_evidence
 from digest_core.select.ranker import DigestRanker
 from digest_core.llm.degrade import extractive_fallback
-from digest_core.llm.prompt_registry import get_prompt_template_path
+from digest_core.llm.prompt_registry import get_prompt_template_path, get_prompts_dir
 
 
 logger = structlog.get_logger()
@@ -478,14 +478,14 @@ def run_digest(from_date: str, sources: List[str], out: str, model: str, window:
             
             try:
                 # Load prompts (switch to EN prompt for qwen models)
-                prompts_dir = Path("prompts")
+                prompts_dir = get_prompts_dir()
                 model_lower = (config.llm.model or "").lower()
                 prompt_version = "extract_actions.en.v1" if "qwen" in model_lower else "extract_actions.v1"
                 try:
                     template_path = get_prompt_template_path(prompt_version)
                 except KeyError as exc:
                     raise ValueError(f"Unknown extract prompt template: {prompt_version}") from exc
-                extract_prompt = (prompts_dir / template_path).read_text()
+                extract_prompt = (prompts_dir / template_path).read_text(encoding="utf-8")
                 
                 # Send to LLM and validate response
                 llm_response = llm_gateway.extract_actions(
