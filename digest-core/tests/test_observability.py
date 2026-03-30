@@ -1,6 +1,7 @@
 """
 Test observability endpoints and metrics.
 """
+
 import pytest
 import requests
 import time
@@ -19,11 +20,11 @@ def test_healthz_endpoint():
     # Start health server in background
     start_health_server(port=9109)
     time.sleep(0.1)  # Give server time to start
-    
+
     try:
         response = requests.get("http://localhost:9109/healthz", timeout=1)
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["status"] == "healthy"
         assert "timestamp" in data
@@ -37,11 +38,11 @@ def test_readyz_endpoint():
     # Start health server in background
     start_health_server(port=9110)
     time.sleep(0.1)  # Give server time to start
-    
+
     try:
         response = requests.get("http://localhost:9110/readyz", timeout=1)
         assert response.status_code == 200
-        
+
         data = response.json()
         assert data["status"] == "ready"
         assert "timestamp" in data
@@ -56,11 +57,11 @@ def test_metrics_endpoint():
     metrics = MetricsCollector()
     metrics.start_server(port=9108)
     time.sleep(0.1)  # Give server time to start
-    
+
     try:
         response = requests.get("http://localhost:9108/metrics", timeout=1)
         assert response.status_code == 200
-        
+
         content = response.text
         assert "llm_latency_ms" in content
         assert "tokens_in" in content
@@ -78,7 +79,7 @@ def test_metrics_cardinality_limits(metrics_collector):
     metrics_collector.record_llm_latency(100, "qwen35-397b-a17b", "extract_actions")
     metrics_collector.record_llm_latency(200, "qwen35-397b-a17b", "extract_actions")
     metrics_collector.record_llm_latency(150, "qwen35-397b-a17b", "summarize")
-    
+
     # Check that metrics are properly aggregated
     # This is more of a design test - we ensure we don't create high-cardinality labels
     assert True  # If we get here without errors, cardinality is controlled
@@ -92,7 +93,7 @@ def test_metrics_collection(metrics_collector):
     metrics_collector.record_digest_build_time(30.5)
     metrics_collector.record_emails_total(25)
     metrics_collector.record_run_total("ok")
-    
+
     # Metrics should be recorded without errors
     assert True
 
@@ -115,7 +116,7 @@ def test_metrics_server_start_stop(metrics_collector):
     # Start server
     metrics_collector.start_server(port=9108)
     time.sleep(0.1)
-    
+
     try:
         # Check server is running
         response = requests.get("http://localhost:9108/metrics", timeout=1)
@@ -130,11 +131,11 @@ def test_health_endpoint_404():
     # Start health server in background
     start_health_server(port=9111)
     time.sleep(0.1)  # Give server time to start
-    
+
     try:
         response = requests.get("http://localhost:9111/unknown", timeout=1)
         assert response.status_code == 404
-        
+
         data = response.json()
         assert "error" in data
         assert data["error"] == "Not Found"
@@ -149,13 +150,13 @@ def test_metrics_prometheus_format():
     metrics = MetricsCollector()
     metrics.start_server(port=9108)
     time.sleep(0.1)  # Give server time to start
-    
+
     try:
         response = requests.get("http://localhost:9108/metrics", timeout=1)
         assert response.status_code == 200
-        
+
         content = response.text
-        
+
         # Check Prometheus format
         assert "# HELP" in content
         assert "# TYPE" in content
@@ -178,5 +179,9 @@ def test_metrics_labels():
     values = metrics.get_metric_values()
     metric_key = next(key for key in values if key.startswith("llm_request_context"))
     samples = values[metric_key]["samples"]
-    assert any(sample["labels"].get("model") == "qwen35-397b-a17b" for sample in samples)
-    assert any(sample["labels"].get("operation") == "extract_actions" for sample in samples)
+    assert any(
+        sample["labels"].get("model") == "qwen35-397b-a17b" for sample in samples
+    )
+    assert any(
+        sample["labels"].get("operation") == "extract_actions" for sample in samples
+    )

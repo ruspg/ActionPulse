@@ -1,8 +1,8 @@
 """
 Tests for strict LLM JSON validation.
 """
+
 import pytest
-import json
 from digest_core.llm.models import parse_llm_json, LLMResponse, minimal_json_repair
 
 
@@ -31,7 +31,7 @@ def test_minimal_json_cleanup():
     cleaned = minimal_json_repair(text)
     assert "```" not in cleaned
     assert '{"key": "value"}' in cleaned
-    
+
     # Trim to last brace
     text = '{"key": "value"}some garbage'
     cleaned = minimal_json_repair(text)
@@ -43,4 +43,3 @@ def test_non_strict_mode_attempts_repair():
     raw = '```json\n{"version":"v1","evidence":[],"summary":[]}\n```'
     obj = parse_llm_json(raw, strict=False)
     assert isinstance(obj, LLMResponse)
-

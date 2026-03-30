@@ -13,7 +13,6 @@ import uuid
 
 import structlog
 
-
 _CONFIGURED_LOG_FILE: Optional[Path] = None
 
 

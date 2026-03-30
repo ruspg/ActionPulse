@@ -18,7 +18,6 @@ from digest_core.ingest.ews import NormalizedMessage
 from digest_core.llm.gateway import LLMGateway
 from digest_core.llm.schemas import Digest
 
-
 LONG_BODY = (
     "Пожалуйста, подготовь обновление статуса проекта, пришли его мне и зафиксируй "
     "основные риски в заметках для руководителя. " * 10

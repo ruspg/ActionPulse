@@ -10,12 +10,11 @@ import structlog
 from digest_core.config import MattermostDeliverConfig
 from digest_core.llm.schemas import Digest
 
-
 logger = structlog.get_logger()
 
 DEFAULT_PING_TEXT = (
     "ActionPulse: проверка incoming webhook (mm-ping). "
-    "Свой текст: `mm-ping --message \"...\"`."
+    'Свой текст: `mm-ping --message "..."`.'
 )
 
 

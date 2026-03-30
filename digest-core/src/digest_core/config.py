@@ -12,7 +12,6 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import yaml
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 

@@ -12,8 +12,14 @@ from digest_core.evidence.split import EvidenceChunk
 from digest_core.llm.gateway import LLMGateway, TokenBudgetExceeded
 
 
-def _mock_response(content: str, *, status_code: int = 200, prompt_tokens: int = 100,
-                   completion_tokens: int = 50, headers: dict | None = None) -> Mock:
+def _mock_response(
+    content: str,
+    *,
+    status_code: int = 200,
+    prompt_tokens: int = 100,
+    completion_tokens: int = 50,
+    headers: dict | None = None
+) -> Mock:
     response = Mock()
     response.status_code = status_code
     response.headers = headers or {}
@@ -59,7 +65,11 @@ def test_quality_retry_empty_sections(gateway):
     content_response = _mock_response('{"sections": [{"title": "Test", "items": []}]}')
     gateway.client.post = Mock(side_effect=[empty_response, content_response])
 
-    evidence = [EvidenceChunk(evidence_id="ev-1", content="Important action item", priority_score=2.0)]
+    evidence = [
+        EvidenceChunk(
+            evidence_id="ev-1", content="Important action item", priority_score=2.0
+        )
+    ]
     result = gateway.extract_actions(evidence, "Return strict JSON", "test-trace-id")
 
     assert result["sections"] == [{"title": "Test", "items": []}]
@@ -89,9 +99,7 @@ def test_network_error_propagation(gateway):
 
 def test_evidence_formatting(gateway):
     """Formatted request payload should include both system and user messages."""
-    gateway.client.post = Mock(
-        return_value=_mock_response('{"sections": []}')
-    )
+    gateway.client.post = Mock(return_value=_mock_response('{"sections": []}'))
     evidence = [
         EvidenceChunk(
             evidence_id="ev-1",
@@ -255,7 +263,9 @@ class TestLLMReplayMode:
         )
         gw = LLMGateway(config, record_llm=str(record_file))
 
-        resp = _mock_response('{"sections":[]}', prompt_tokens=100, completion_tokens=50)
+        resp = _mock_response(
+            '{"sections":[]}', prompt_tokens=100, completion_tokens=50
+        )
         gw.client.post = Mock(return_value=resp)
 
         gw.extract_actions(self._make_evidence(), "Return strict JSON", "trace-rec")

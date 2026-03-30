@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Dict
 
-
 PROMPT_TEMPLATE_MAP: Dict[str, str] = {
     "summarize.mvp.5": "summarize/mvp/v5/default.j2",
     "summarize.mvp5": "summarize/mvp/v5/default.j2",
