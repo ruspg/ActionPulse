@@ -11,6 +11,17 @@ scripts/         # Installation and setup scripts (install.sh, setup.sh)
 
 Monorepo with one package. All development happens in `digest-core/`.
 
+## Root Shim (dev convenience only)
+
+Two files at the repo root allow `python -m digest_core.cli` to be run **without** `cd digest-core`:
+
+- **`sitecustomize.py`** — Python's auto-import hook; inserts `digest-core/src` into `sys.path` at interpreter startup.
+- **`digest_core/__init__.py`** — Namespace package shim; extends `__path__` to the real package in `digest-core/src/digest_core/`.
+
+**Canonical supported path:** `cd digest-core && python -m digest_core.cli …` (with `uv`-managed venv).
+
+The root shim is a dev convenience and is **not** needed for Docker, systemd, or `pip install`. It may cause IDE confusion (two `digest_core` packages visible). Do not depend on it for production deployments.
+
 ## Key Documents
 
 - `digest-core/docs/ARCHITECTURE.md` — **Single source of truth** for digest-core architecture, contracts, ADRs, roadmap (verify against code when in doubt)

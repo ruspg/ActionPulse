@@ -39,6 +39,17 @@ Monorepo with one package. All development happens in `digest-core/`.
 - **Dev workflow**: "Code outside, run inside, debug outside" (ADR-012).
 - Use `--dump-ingest` / `--replay-ingest` for offline development.
 
+## Root Shim (dev convenience only)
+
+Two files at the repo root allow `python -m digest_core.cli` to be run **without** `cd digest-core`:
+
+- **`sitecustomize.py`** — Python's auto-import hook; inserts `digest-core/src` into `sys.path` at interpreter startup.
+- **`digest_core/__init__.py`** — Namespace package shim; extends `__path__` to the real package in `digest-core/src/digest_core/`.
+
+**Canonical supported path:** `cd digest-core && python -m digest_core.cli …` (with `uv`-managed venv).
+
+The root shim is a dev convenience and is **not** needed for Docker, systemd, or `pip install`. It may cause IDE confusion (two `digest_core` packages visible). Do not depend on it for production deployments.
+
 ## Git Preflight
 
 - Always run `git fetch origin --prune` before implementation work, Plane updates, or PR creation.
