@@ -85,7 +85,7 @@ def run(
                 record_llm=record_llm,
                 replay_llm=replay_llm,
             )
-            exit_code = 2  # Partial success code
+            exit_code = 0  # Dry-run completed successfully
         else:
             citation_validation_passed = run_digest(
                 from_date,
