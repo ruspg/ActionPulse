@@ -58,8 +58,8 @@ def test_cli_run_dry_run(runner):
             ],
         )
 
-        # Dry-run should exit with code 2
-        assert result.exit_code == 2
+        # Dry-run success should exit with code 0
+        assert result.exit_code == 0
         assert "dry-run" in result.output.lower()
         mock_run.assert_called_once()
 

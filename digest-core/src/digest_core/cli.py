@@ -1,12 +1,14 @@
 import json
-import sys
+import os
+import shutil
 import subprocess
+import sys
 import typer
 from pathlib import Path
 
 import httpx
 
-from digest_core.diagnostics import export_diagnostics
+from digest_core.diagnostics import export_diagnostics, _build_env_info
 from digest_core.deliver.mattermost import ping_mattermost_webhook
 from digest_core.run import run_digest, run_digest_dry_run
 from digest_core.observability.logs import setup_logging
@@ -53,7 +55,9 @@ def run(
         help="Enforce citation validation; exit with code 2 on failures",
     ),
     collect_logs: bool = typer.Option(
-        False, "--collect-logs", help="Automatically collect diagnostics after run"
+        False,
+        "--collect-logs",
+        help="Automatically collect diagnostics after run (requires git checkout; no-op in wheel installs)",
     ),
     log_file: str = typer.Option(None, "--log-file", help="Specify log file path"),
     log_level: str = typer.Option(
@@ -81,7 +85,7 @@ def run(
                 record_llm=record_llm,
                 replay_llm=replay_llm,
             )
-            exit_code = 2  # Partial success code
+            exit_code = 0  # Dry-run completed successfully
         else:
             citation_validation_passed = run_digest(
                 from_date,
@@ -130,34 +134,64 @@ def run(
 
 @app.command()
 def diagnose():
-    """Run comprehensive diagnostics and collect system information."""
+    """Run environment diagnostics.
+
+    Attempts to run shell-based scripts from digest-core/scripts/ (available in
+    a git checkout).  When scripts are not present (e.g. wheel install), falls
+    back to a Python-only environment report.
+    """
     try:
         typer.echo("Running ActionPulse diagnostics...")
 
-        # Find scripts directory
         script_dir = Path(__file__).parent.parent.parent / "scripts"
+        ran_shell = False
 
-        # Run environment diagnostics
         env_script = script_dir / "print_env.sh"
         if env_script.exists():
-            typer.echo("Running environment diagnostics...")
+            typer.echo("Running environment diagnostics (shell)...")
             result = subprocess.run([str(env_script)], capture_output=True, text=True)
             typer.echo(result.stdout)
             if result.stderr:
                 typer.echo(result.stderr, err=True)
-        else:
-            typer.echo("⚠ Environment diagnostics script not found", err=True)
+            ran_shell = True
 
-        # Collect comprehensive diagnostics
         collect_script = script_dir / "collect_diagnostics.sh"
         if collect_script.exists():
-            typer.echo("Collecting comprehensive diagnostics...")
+            typer.echo("Collecting comprehensive diagnostics (shell)...")
             result = subprocess.run([str(collect_script)], capture_output=True, text=True)
             typer.echo(result.stdout)
             if result.stderr:
                 typer.echo(result.stderr, err=True)
-        else:
-            typer.echo("⚠ Diagnostics collection script not found", err=True)
+            ran_shell = True
+
+        if not ran_shell:
+            # Shell scripts not available (wheel install or scripts/ absent).
+            # Provide a Python-only environment report.
+            typer.echo("Shell diagnostics scripts not found — running Python-based report.")
+            typer.echo("")
+            typer.echo(_build_env_info())
+            typer.echo("Required ENV vars:")
+            for var in (
+                "EWS_USER_UPN",
+                "EWS_PASSWORD",
+                "LLM_TOKEN",
+                "EWS_ENDPOINT",
+                "LLM_ENDPOINT",
+            ):
+                value = os.environ.get(var)
+                status = f"set ({len(value)} chars)" if value else "NOT SET"
+                mark = "✓" if value else "✗"
+                typer.echo(f"  {mark} {var}: {status}")
+            typer.echo("")
+            typer.echo("Tools:")
+            for tool in ("uv", "docker", "pytest", "ruff"):
+                path = shutil.which(tool)
+                mark = "✓" if path else "✗"
+                typer.echo(f"  {mark} {tool}: {path or 'not found'}")
+            typer.echo("")
+            typer.echo(
+                "Note: full shell-based diagnostics require a git checkout (digest-core/scripts/)."
+            )
 
         typer.echo("✓ Diagnostics completed")
 

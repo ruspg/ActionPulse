@@ -84,6 +84,16 @@ make test    # All tests use mocks, run anywhere
 - If this worktree cannot fetch, use a fresh clone/worktree inside the writable workspace rather than continuing on stale git state.
 - Only move Plane issues or open a PR after the branch base and `make test` baseline are verified on that branch.
 
+## CLI Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success — full run or `--dry-run` completed without errors |
+| `1` | Error — unhandled exception, missing required ENV, pipeline crash, `KeyboardInterrupt` |
+| `2` | Citation validation failed — only emitted when `--validate-citations` is passed and one or more items fail the evidence_id check |
+
+`--dry-run` exits `0` (not `2`) — it is a complete success for its stated purpose (ingest + normalize only). Code `2` is reserved exclusively for `--validate-citations` failures.
+
 ## Gotchas
 
 - **CLI from repo root**: Top-level `digest_core/` package extends the path into `digest-core/src`; use `python3 -m digest_core.cli` from the monorepo root or `cd digest-core` and the same module name.
@@ -93,6 +103,7 @@ make test    # All tests use mocks, run anywhere
 - **Token estimation**: `words * 1.3` approximation, NOT tiktoken. Off by ~10% but fine for 3000-token budget.
 - **LLM timeout**: Default `timeout_s` is 120s for qwen35-397b-a17b (see `LLMConfig`).
 - **Extraction prompts**: `extract_actions*.txt` are plain text (ADR-009). Other flows may still reference `.j2` paths via `llm/prompt_registry.py` (e.g. hierarchical summarize).
+- **`hierarchical/` is EXPERIMENTAL** and not called by `run.py`. It implements a multi-step LLM pipeline (per-thread summarize → aggregate) for high-volume use cases. It violates ADR-002 (single LLM call) and would exhaust the 15 RPM gateway limit. Do not integrate without explicit design approval. See `hierarchical/__init__.py` for full context.
 
 ## Environment Variables
 
