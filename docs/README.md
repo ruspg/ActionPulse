@@ -45,7 +45,7 @@ cd digest-core
 
 ### 👨‍💻 Разработка
 
-- **[Architecture](development/ARCHITECTURE.md)** - Архитектура системы и компоненты
+- **[Architecture](../digest-core/docs/ARCHITECTURE.md)** - Архитектура системы и компоненты (**единственный SoT**; `development/ARCHITECTURE.md` — только редирект)
 - **[Technical Details](development/TECHNICAL.md)** - Технические детали и конфигурация
 - **[Implementation Guide](development/IMPLEMENTATION_GUIDE.md)** - Руководство по реализации с примерами кода
 - **[Code Examples](development/CODE_EXAMPLES.md)** - Практические примеры кода
