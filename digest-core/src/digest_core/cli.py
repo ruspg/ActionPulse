@@ -1,6 +1,7 @@
-import typer
+import json
 import sys
 import subprocess
+import typer
 from pathlib import Path
 
 import httpx
@@ -23,9 +24,7 @@ def run(
         "ews", "--sources", help="Comma-separated source types (e.g., 'ews')"
     ),
     out: str = typer.Option("./out", "--out", help="Output directory path"),
-    model: str = typer.Option(
-        "qwen35-397b-a17b", "--model", help="LLM model identifier"
-    ),
+    model: str = typer.Option("qwen3.5-397b", "--model", help="LLM model identifier"),
     window: str = typer.Option(
         "calendar_day", "--window", help="Time window: calendar_day or rolling_24h"
     ),
@@ -35,9 +34,7 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Run ingest+normalize only, skip LLM/assemble"
     ),
-    force: bool = typer.Option(
-        False, "--force", help="Bypass the T-48h idempotency check"
-    ),
+    force: bool = typer.Option(False, "--force", help="Bypass the T-48h idempotency check"),
     dump_ingest: str = typer.Option(
         None, "--dump-ingest", help="Write normalized ingest snapshot to JSON"
     ),
@@ -46,9 +43,7 @@ def run(
         "--replay-ingest",
         help="Replay a normalized ingest snapshot instead of EWS",
     ),
-    record_llm: str = typer.Option(
-        None, "--record-llm", help="Record LLM responses to JSON file"
-    ),
+    record_llm: str = typer.Option(None, "--record-llm", help="Record LLM responses to JSON file"),
     replay_llm: str = typer.Option(
         None, "--replay-llm", help="Replay LLM responses from a recorded JSON file"
     ),
@@ -157,9 +152,7 @@ def diagnose():
         collect_script = script_dir / "collect_diagnostics.sh"
         if collect_script.exists():
             typer.echo("Collecting comprehensive diagnostics...")
-            result = subprocess.run(
-                [str(collect_script)], capture_output=True, text=True
-            )
+            result = subprocess.run([str(collect_script)], capture_output=True, text=True)
             typer.echo(result.stdout)
             if result.stderr:
                 typer.echo(result.stderr, err=True)
@@ -208,15 +201,11 @@ def mm_ping(
 
 @app.command("export-diagnostics")
 def export_diagnostics_command(
-    trace_id: str = typer.Option(
-        None, "--trace-id", help="Trace ID of the run to export"
-    ),
+    trace_id: str = typer.Option(None, "--trace-id", help="Trace ID of the run to export"),
     out: str = typer.Option(
         ..., "--out", help="Directory where the diagnostic bundle will be written"
     ),
-    date: str = typer.Option(
-        None, "--date", help="Digest date to export if trace ID is unknown"
-    ),
+    date: str = typer.Option(None, "--date", help="Digest date to export if trace ID is unknown"),
     send_mm: bool = typer.Option(
         False, "--send-mm", help="Send a Mattermost notification for the bundle"
     ),
@@ -235,6 +224,113 @@ def export_diagnostics_command(
     except Exception as e:
         typer.echo(f"Error exporting diagnostics: {e}", err=True)
         sys.exit(1)
+
+
+@app.command("eval-prompt")
+def eval_prompt(
+    digest: str = typer.Option(..., "--digest", help="Path to digest-YYYY-MM-DD.json to evaluate"),
+    ingest_snapshot: str = typer.Option(
+        None,
+        "--ingest-snapshot",
+        help="Path to ingest or LLM-replay snapshot for evidence_id cross-validation",
+    ),
+    output_json: str = typer.Option(
+        None, "--output-json", help="Write JSON eval report to this file"
+    ),
+    show_changelog: bool = typer.Option(
+        False, "--show-changelog", help="Print the prompt changelog and exit"
+    ),
+    prompt_file: str = typer.Option(
+        None,
+        "--prompt-file",
+        help="Path to prompt txt file for changelog display (default: prompts/extract_actions.v1.txt)",
+    ),
+):
+    """Evaluate a digest output for prompt quality (COMMON-12 iteration tooling).
+
+    Scores the digest on evidence_id validity, confidence calibration,
+    section assignment rules, and structural contract compliance.
+    Returns exit code 0 (all OK) or 1 (errors found).
+
+    Examples:
+
+    \\b
+        # Basic eval on a saved digest
+        python -m digest_core.cli eval-prompt --digest out/digest-2026-03-31.json
+
+        # With evidence_id validation using an ingest snapshot
+        python -m digest_core.cli eval-prompt \\\\
+            --digest out/digest-2026-03-31.json \\\\
+            --ingest-snapshot /tmp/ews-snapshot.json
+
+        # With LLM replay snapshot
+        python -m digest_core.cli eval-prompt \\\\
+            --digest out/digest-2026-03-31.json \\\\
+            --ingest-snapshot /tmp/llm-replay.json
+
+        # Show prompt changelog
+        python -m digest_core.cli eval-prompt --show-changelog
+    """
+    from digest_core.eval.prompt_eval import evaluate_digest_file
+    from digest_core.eval.changelog import (
+        parse_prompt_changelog,
+        format_changelog,
+        get_current_version,
+    )
+    from digest_core.config import PROJECT_ROOT
+
+    # Resolve default prompt file path
+    if prompt_file:
+        prompt_path = Path(prompt_file)
+    else:
+        prompt_path = PROJECT_ROOT / "prompts" / "extract_actions.v1.txt"
+
+    # --show-changelog mode
+    if show_changelog:
+        if not prompt_path.exists():
+            typer.echo(f"Prompt file not found: {prompt_path}", err=True)
+            raise typer.Exit(1)
+        versions = parse_prompt_changelog(prompt_path)
+        typer.echo(f"Prompt: {prompt_path}")
+        typer.echo(format_changelog(versions))
+        raise typer.Exit(0)
+
+    # Validate inputs
+    digest_path = Path(digest)
+    if not digest_path.exists():
+        typer.echo(f"Digest file not found: {digest_path}", err=True)
+        raise typer.Exit(1)
+
+    snapshot_path = Path(ingest_snapshot) if ingest_snapshot else None
+    if snapshot_path and not snapshot_path.exists():
+        typer.echo(f"Snapshot file not found: {snapshot_path}", err=True)
+        raise typer.Exit(1)
+
+    # Run evaluation
+    report = evaluate_digest_file(digest_path, ingest_snapshot_path=snapshot_path)
+
+    # Print summary
+    typer.echo(report.summary())
+
+    # Optionally append prompt version from changelog
+    if prompt_path.exists():
+        current = get_current_version(prompt_path)
+        if current:
+            typer.echo(f"\nPrompt changelog current version: {current}")
+
+    # Write JSON report if requested
+    if output_json:
+        out_path = Path(output_json)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            json.dumps(report.to_dict(), indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        typer.echo(f"\nJSON report written to: {out_path}")
+
+    # Exit 1 if any errors found
+    if report.errors:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
