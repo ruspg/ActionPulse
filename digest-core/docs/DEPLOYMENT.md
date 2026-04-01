@@ -10,7 +10,7 @@
 
 ```bash
 cd digest-core
-uv sync
+uv sync --native-tls
 ```
 
 ## 2. Configuration

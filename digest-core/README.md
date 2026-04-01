@@ -10,7 +10,7 @@ Daily corporate email digest with LLM-powered action extraction. Processes Excha
 # 1. Clone & install
 git clone https://github.com/ruspg/ActionPulse.git
 cd ActionPulse/digest-core
-uv sync
+uv sync --native-tls
 
 # 2. Secrets
 mkdir -p ~/.config/actionpulse

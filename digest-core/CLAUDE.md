@@ -10,8 +10,8 @@ git fetch origin --prune
 git status --short --branch
 
 # Setup
-uv sync                              # Install dependencies
-make setup                           # Same via Makefile
+uv sync --native-tls                 # Install dependencies (native TLS for corp proxy)
+make setup                           # Same via Makefile (with native-tls fallback)
 
 # Development
 make test                            # Run pytest (all mocked, no network needed)

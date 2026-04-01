@@ -11,7 +11,7 @@ cd "$PROJECT_ROOT"
 
 # Check if the CLI is available
 if ! python3 -m digest_core.cli --help &> /dev/null; then
-    echo "Error: digest_core CLI not available. Run 'uv sync' first."
+    echo "Error: digest_core CLI not available. Run 'uv sync --native-tls' first."
     exit 1
 fi
 

@@ -66,7 +66,7 @@ cd digest-core
 ### 1.2 Установить зависимости
 
 ```bash
-uv sync
+uv sync --native-tls
 ```
 
 ### 1.3 Загрузить секреты
@@ -292,7 +292,7 @@ diff <(jq .scores ~/corpus/eval-2026-04-01.json) \
 ```
 □  Секреты готовы (EWS_PASSWORD, LLM_TOKEN, MM_WEBHOOK_URL)
 □  MM ping OK
-□  uv sync
+□  uv sync --native-tls
 □  diagnose — все ✓
 □  dry-run + dump-ingest → snapshot создан, N > 0 писем
 □  full run + record-llm → дайджест в MM
