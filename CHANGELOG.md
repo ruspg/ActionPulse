@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Merged `digest-core/docs/` content into the main `docs/` structure.
 - Introduced versioned prompt directories and a registry for template lookups.
 - Operations and developer docs reconciled with `observability/metrics.py`, `healthz.py`, and `digest-core/deploy/*` (systemd user units, cron example); fixed broken doc index links (ACTPULSE-63).
+- `digest-core/docs/ARCHITECTURE.md`: new §4.3 documenting `select/ranker.py` (`DigestRanker`, `RankerConfig`) and explicitly that **`run.py` does not call it yet** (ACTPULSE-38).
 
 ## [1.1.0] - 2024-10-15
 
