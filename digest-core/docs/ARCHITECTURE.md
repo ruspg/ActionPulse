@@ -435,6 +435,20 @@ File artifacts already written by Stage 7 — delivery is best-effort.
 
 ---
 
+### 4.3 `select/ranker.py` — `DigestRanker` (item scoring)
+
+**Purpose:** Rule-based **re-ranking of digest items** after extraction (actionability score). Pure Python — no extra ML dependencies. Implements `DigestRanker` with `RankingFeatures` (To/CC match, action/mention flags, due date, sender importance, thread length, recency, attachments, JIRA-style tags) and **normalized weights** that sum to 1.0.
+
+**Config:** `RankerConfig` is mounted on the root `Config` model as `config.ranker` (YAML key `ranker`). ENV overrides follow the generic nested rule `DIGEST_<PREFIX>_<FIELD>` with `PREFIX=RANKER` (e.g. `DIGEST_RANKER_ENABLED`, `DIGEST_RANKER_WEIGHT_USER_IN_TO`) — see `_merge_model` in `config.py` and §5.
+
+**Pipeline status (MVP):** `digest_core/run.py` **does not import or call** `DigestRanker`. Stage 5 remains `select/context.py` (evidence chunk selection). The ranker is covered by unit tests (`tests/test_ranker.py`) and is available for **future** integration (e.g. reordering `Digest` items before assemble) or offline experiments — do not assume it affects production output until wired explicitly.
+
+**API sketch:**
+- `DigestRanker.rank_items(items, evidence_chunks)` → sorted list (highest `rank_score` first).
+- Project-tag detection uses regex union over `[JIRA-123]`, `[#456]`, etc.
+
+---
+
 ## 5. Configuration
 
 ### 5.1 Config Schema
