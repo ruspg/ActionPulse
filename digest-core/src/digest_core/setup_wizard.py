@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -171,9 +170,7 @@ def run_setup() -> None:
 
     # ── 1. Corp email ──
     default_upn = (
-        existing_env.get("EWS_USER_UPN")
-        or existing_cfg.get("ews", {}).get("user_upn")
-        or ""
+        existing_env.get("EWS_USER_UPN") or existing_cfg.get("ews", {}).get("user_upn") or ""
     )
     user_upn = typer.prompt(
         "1/6  Корпоративный email (login@corp-domain.ru)",
@@ -212,9 +209,7 @@ def run_setup() -> None:
 
     # ── 4. LLM endpoint ──
     default_llm = (
-        existing_env.get("LLM_ENDPOINT")
-        or existing_cfg.get("llm", {}).get("endpoint")
-        or ""
+        existing_env.get("LLM_ENDPOINT") or existing_cfg.get("llm", {}).get("endpoint") or ""
     )
     llm_endpoint = typer.prompt(
         "4/6  LLM Gateway endpoint URL",

@@ -1,10 +1,5 @@
 """Tests for the interactive setup wizard."""
 
-import os
-from pathlib import Path
-from unittest.mock import patch, MagicMock
-
-import pytest
 import yaml
 
 from digest_core.setup_wizard import (
@@ -12,7 +7,6 @@ from digest_core.setup_wizard import (
     _read_existing_env,
     _write_env_file,
     _write_config_yaml,
-    ENV_PATH,
 )
 
 
