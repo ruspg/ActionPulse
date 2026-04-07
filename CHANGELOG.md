@@ -21,13 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Merged `digest-core/docs/` content into the main `docs/` structure.
 - Introduced versioned prompt directories and a registry for template lookups.
 - Operations and developer docs reconciled with `observability/metrics.py`, `healthz.py`, and `digest-core/deploy/*` (systemd user units, cron example); fixed broken doc index links (ACTPULSE-63). Shipped in [PR #36](https://github.com/ruspg/ActionPulse/pull/36), merge commit `7689baf`.
+- `digest-core/docs/ARCHITECTURE.md`: **§4.3** documents `select/ranker.py` (`DigestRanker`, `RankerConfig`) and states that **`run.py` does not call the ranker** ([PR #38](https://github.com/ruspg/ActionPulse/pull/38), merge `1f0cd64`).
+- `digest-core/docs/ARCHITECTURE.md`: expanded **Stage 3 (THREADS)** to match `ThreadBuilder` (`threads/build.py`); new **§4.4** documents `threads/subject_normalizer.py` / `SubjectNormalizer` (ACTPULSE-39).
+- `digest-core/docs/ARCHITECTURE.md`: Tier-1 reconciliation with code — **Stage 4** output is token-truncated (default `max_total_tokens` **7000**); **`EvidenceChunk`** documented as `@dataclass`; **Stage 5** token/bucket behavior matches `select/context.py`; diagram + §8 error rows (Select empty, LLM invalid JSON vs `extract_actions` / `degrade.py`); qwen context + LLM JSON example include `response_format`; §11 / §15 token-budget wording aligned with defaults ([PR #40](https://github.com/ruspg/ActionPulse/pull/40), merge `5321cfe`).
+- `digest-core/docs/ARCHITECTURE.md`: Tier-2 doc accuracy — §6.1 Prometheus vs `metrics.py` (remove fictitious `delivery_*`; document real series); §7 `Digest`/`Item`/`Citation` vs `llm/schemas.py`; §5.2 **CTX_BUDGET** env prefix; §5.3 remove non-functional `DIGEST_OUT_DIR` / `DIGEST_STATE_DIR` / `DIGEST_LOG_LEVEL` rows (use `--out` / `--state` / `--log-level`); evidence package tree; jinja2 in §11 + ADR-009/010 wording; ADR-011 delivery metrics; Appendix B `--force`; glossary budget owner; assemble truncation marker; `docs/development/RANKING.md` status banner; `digest-core/README.md` Mattermost + test count.
 
 ### Fixed
 - Post-merge doc correction: `digest_core.cli setup` **does** exist (wizard); README/CHANGELOG no longer claim otherwise (follow-up to ACTPULSE-63 text).
-
-### Changed
-- `digest-core/docs/ARCHITECTURE.md`: expanded **Stage 3 (THREADS)** to match `ThreadBuilder` (`threads/build.py`); new **§4.4** documents `threads/subject_normalizer.py` / `SubjectNormalizer` (ACTPULSE-39).
-- `digest-core/docs/ARCHITECTURE.md`: Tier-1 reconciliation with code — **Stage 4** output is token-truncated (default `max_total_tokens` **7000**); **`EvidenceChunk`** documented as `@dataclass`; **Stage 5** token/bucket behavior matches `select/context.py`; diagram + §8 error rows (Select empty, LLM invalid JSON vs `extract_actions` / `degrade.py`); qwen context + LLM JSON example include `response_format`; §11 / §15 token-budget wording aligned with defaults.
 
 ## [1.1.0] - 2024-10-15
 

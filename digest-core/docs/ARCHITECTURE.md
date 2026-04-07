@@ -345,12 +345,24 @@ Typical run: 1 HTTP call.
 
 **JSON Schema:**
 ```python
+# `llm/schemas.py` — default `cli run` / Digest schema 1.0. Pydantic: BaseModel, Field.
+# Masked PII fields (1.1.0 removal) не используются.
+
+class Citation(BaseModel):
+    msg_id: str
+    start: int                   # offset in normalized body
+    end: int
+    preview: str                 # text[start:end], capped
+    checksum: Optional[str] = None
+
 class Digest(BaseModel):
     schema_version: str = "1.0"
-    prompt_version: str      # e.g., "extract_actions.v1"
-    digest_date: str         # YYYY-MM-DD
-    trace_id: str            # UUID4
+    prompt_version: str
+    digest_date: str
+    trace_id: str
     sections: List[Section]
+    total_emails_processed: int = 0
+    emails_with_actions: int = 0
 
 class Section(BaseModel):
     title: str
@@ -358,11 +370,12 @@ class Section(BaseModel):
 
 class Item(BaseModel):
     title: str
-    owners_masked: List[str] = []
-    due: Optional[str] = None    # YYYY-MM-DD or null
+    due: Optional[str] = None
     evidence_id: str
     confidence: float            # 0.0 - 1.0
-    source_ref: Dict[str, Any]   # {type: "email", msg_id: "..."}
+    source_ref: Dict[str, Any]
+    email_subject: Optional[str] = None
+    citations: List[Citation] = Field(default_factory=list)
 ```
 
 **Markdown format:**
@@ -385,7 +398,7 @@ class Item(BaseModel):
 | Target | Phase | Mechanism | Config |
 |--------|-------|-----------|--------|
 | **File (disk/S3)** | MVP (done) | `Path.write_text()` | `out` CLI flag |
-| **Mattermost DM** | Phase 0 | Incoming webhook POST or Bot API | `deliver.mattermost.*` |
+| **Mattermost** (incoming webhook → канал webhook; Bot API — опционально) | Phase 0 | Incoming webhook POST or Bot API | `deliver.mattermost.*` |
 | Email (SMTP) | Phase 1+ | Optional | `deliver.email.*` |
 
 **Mattermost delivery (Phase 0):**
@@ -543,7 +556,7 @@ observability:
 
 Используются два механизма ENV-override (см. `_merge_model()` в `config.py`):
 - **Explicit `env_field_map`** для обратной совместимости: EWS (`EWS_ENDPOINT`, `EWS_USER_UPN`, `EWS_USER_LOGIN`, `EWS_USER_DOMAIN`) и LLM (`LLM_ENDPOINT`).
-- **Generic `env_prefix`** на каждой секции (`DIGEST_<PREFIX>_<FIELD>`): TIME, EWS, LLM, MM (deliver.mattermost), OBS (observability), SEL_BUCKETS, SEL_WEIGHTS, CONTEXT_BUDGET, CHUNKING, SHRINK, HIERARCHICAL, EMAIL_CLEANER, NLP, RANKER, DEGRADE. Например: `DIGEST_LLM_TIMEOUT_S=300` переопределит `llm.timeout_s` в YAML.
+- **Generic `env_prefix`** на каждой секции (`DIGEST_<PREFIX>_<FIELD>`): TIME, EWS, LLM, MM (deliver.mattermost), OBS (observability), SEL_BUCKETS, SEL_WEIGHTS, **CTX_BUDGET** (YAML-ключ `context_budget`), CHUNKING, SHRINK, HIERARCHICAL, EMAIL_CLEANER, NLP, RANKER, DEGRADE. Например: `DIGEST_LLM_TIMEOUT_S=300` переопределит `llm.timeout_s` в YAML; `DIGEST_CTX_BUDGET_MAX_TOTAL_TOKENS` — поле `max_total_tokens`.
 
 Пароль EWS (`EWS_PASSWORD`) и токен LLM (`LLM_TOKEN`) читаются напрямую из ENV в `get_password()`/`get_token()` и в YAML не мержатся вообще.
 
@@ -558,9 +571,8 @@ observability:
 | `MM_WEBHOOK_URL` | No* | Mattermost incoming webhook URL (*required if deliver.mattermost.enabled) |
 | `MM_BOT_TOKEN` | No | Mattermost bot token (Phase 1, alternative to webhook) |
 | `DIGEST_CONFIG_PATH` | No | Path to custom config YAML |
-| `DIGEST_OUT_DIR` | No | Override output directory |
-| `DIGEST_STATE_DIR` | No | Override state directory |
-| `DIGEST_LOG_LEVEL` | No | Override log level |
+
+Каталог вывода и state задаются флагами **`python -m digest_core.cli run --out`** и **`--state`** (см. Appendix B), а не отдельными `DIGEST_*_DIR` переменными — последние **не читаются** пайплайном (в шаблонах env могут встречаться закомментированные примеры). Уровень логирования: **`--log-level`**, не `DIGEST_LOG_LEVEL`.
 
 ---
 
@@ -568,19 +580,44 @@ observability:
 
 ### 6.1 Prometheus Metrics (port 9108)
 
+**Canonical source:** `digest_core/observability/metrics.py` — `MetricsCollector._init_metrics`. Все объявленные там серии попадают в registry на порту **9108** (по умолчанию). Имена и labelsets ниже краткие; точное определение — только в коде.
+
+**На пути `digest_core.cli run`:** обновляются LLM-, pipeline-, email- и evidence-счётчики, стадийные гистограммы, `runs_total`, при partial после сбоя LLM — `degradations_total` и др. **Не каждая** серия инкрементится на каждом запуске (серии под иерархический режим, часть ranking-метрик и т.д. могут оставаться нулевыми, пока соответствующий код не вызывает `record_*`).
+
+#### Основные: pipeline и LLM
+
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `llm_latency_ms` | Histogram | — | LLM request latency |
-| `llm_tokens_in_total` | Counter | — | Input tokens consumed |
-| `llm_tokens_out_total` | Counter | — | Output tokens consumed |
-| `emails_total` | Counter | status | Emails processed by status |
-| `digest_build_seconds` | Summary | — | Total pipeline duration |
-| `runs_total` | Counter | status | Pipeline runs by outcome (ok/failed) |
-| `evidence_chunks_total` | Counter | stage | Evidence chunks by pipeline stage |
-| `threads_total` | Counter | status | Threads by status |
-| `pipeline_stage_duration_seconds` | Histogram | stage | Per-stage latency |
-| `errors_total` | Counter | type, stage | Errors by type and stage |
-| `delivery_total` | Counter | target, status | Delivery attempts (mm/file × ok/failed) |
+| `llm_latency_ms` | Histogram | — | Latency LLM-запроса (мс) |
+| `llm_tokens_in_total` | Counter | — | Входные токены (из метаданных gateway) |
+| `llm_tokens_out_total` | Counter | — | Выходные токены |
+| `llm_request_context_total` | Counter | `model`, `operation` | Низкокардинальный контекст вызова (см. `record_llm_latency`) |
+| `llm_json_error_total` | Counter | — | Ошибки разбора JSON в теле ответа LLM |
+| `llm_repair_fail_total` | Counter | — | Неудачи пути «починки» JSON |
+| `digest_build_seconds` | Summary | — | Длительность полного прогона |
+| `runs_total` | Counter | `status` | Исходы run (`ok`, `retry`, `failed`, …) |
+| `pipeline_stage_duration_seconds` | Histogram | `stage` | Длительность стадий |
+| `emails_total` | Counter | `status` | Воронка ingest/normalize |
+| `evidence_chunks_total` | Counter | `stage` | Чанки по стадиям (`created`, `selected`, …) |
+| `threads_total` | Counter | `status` | Статистика тредов |
+| `errors_total` | Counter | `error_type`, `stage` | Ошибки по типу и стадии |
+| `degradations_total` | Counter | `reason` | Например `llm_failed` при partial digest |
+
+#### Доставка (Mattermost / файлы)
+
+**Отдельных счётчиков `delivery_total` / `delivery_errors_total` в `metrics.py` нет.** Успех/сбой доставки отражаются **structured logs** и при необходимости **`delivery_receipt`** в метаданных run (`run.py`, `deliver/mattermost.py`). См. ADR-011.
+
+#### Расширенная инструментализация (выборочно)
+
+| Область | Метрики (labels — в коде) |
+|---------|---------------------------|
+| Email cleaner | `email_cleaner_removed_chars_total`, `email_cleaner_removed_blocks_total`, `cleaner_errors_total` |
+| Citations / actions | `citations_per_item_histogram`, `citation_validation_failures_total`, `actions_found_total`, `mentions_found_total`, `actions_confidence_histogram`, `actions_sender_missing_total` |
+| Threading | `threads_merged_total`, `subject_normalized_total`, `duplicates_found_total`, `redundancy_index` (Gauge) |
+| Ranking (`DigestRanker`) | `rank_score_histogram`, `top10_actions_share`, `ranking_enabled` — **§4.3:** `run.py` ранкер **не вызывает**; значения в Prometheus в основном из тестов или будущей проводки |
+| Hierarchical | `hierarchical_runs_total`, `avg_subsummary_chunks`, `saved_tokens_total`, `must_include_chunks_total` — не дефолтный daily `run` |
+| HTML normalize | `html_parse_errors_total`, `html_hidden_removed_total` |
+| Прочее | `validation_error_total`, `tz_naive_total`, `system_uptime_seconds`, `memory_usage_bytes` |
 
 ### 6.2 Structured Logging
 
@@ -650,7 +687,7 @@ run_digest("2026-03-29", ...)
 | **6. LLM** | Invalid JSON (unparseable body) | `json.loads` failure → `RetryableLLMError` → до 2 HTTP-попыток внутри `_make_request_with_retry`, с подсказкой strict JSON в system prompt. **`extractive_fallback` из `degrade.py` на этом пути не вызывается.** После исчерпания ретраев — исключение → **`_build_partial_digest`** в `run.py`. См. примечание ниже про `process_digest`. | OK |
 | **6. LLM** | Empty sections (no actions found) | Quality retry если есть позитивные сигналы | OK (реализовано) |
 | **7. Assemble** | Disk write failure | Exception → crash | Log error, attempt alternate path or fail with clear message |
-| **7. Assemble** | Word count > 400 | Truncate with "[обрезано]" marker | OK (implemented) |
+| **7. Assemble** | Word count > 400 | Truncate with Russian marker `*[Содержимое обрезано для соблюдения лимита слов]*` (`assemble/markdown.py`) | OK (implemented) |
 | **8. Deliver** | MM webhook unreachable | `logger.warning()`, exit 0. Файлы уже сохранены | OK (ADR-011, `mattermost.py`) |
 | **8. Deliver** | MM message too long (>16383) | Дробление на несколько сообщений | OK (`MattermostDeliverer`) |
 | **8. Deliver** | MM webhook returns 4xx | Warning / лог; без ретрая (конфиг) | OK |
@@ -809,7 +846,12 @@ digest-core/
 │   ├── threads/
 │   │   └── build.py               # Thread grouping
 │   ├── evidence/
-│   │   └── split.py               # Evidence chunking
+│   │   ├── __init__.py
+│   │   ├── split.py               # Evidence chunking (`EvidenceChunk`, `EvidenceSplitter`)
+│   │   ├── signals.py             # Heuristic signals on text
+│   │   ├── actions.py             # Action / mention extraction helpers
+│   │   ├── citations.py           # Citation validation / builder (not wired in default `run.py`)
+│   │   └── lemmatizer.py          # RU lemmatization for NLP-style helpers
 │   ├── select/
 │   │   └── context.py             # Context selection/scoring
 │   ├── llm/
@@ -872,8 +914,8 @@ digest-core/
 | beautifulsoup4 | ≥4.12 | HTML parsing |
 | pytz | ≥2023.3 | Timezone handling |
 | pyyaml | ≥6.0 | YAML config parsing |
+| jinja2 | ≥3.1 | Template engine for **`process_digest`** / hierarchical prompts (`.j2` under `prompts/`); **extraction** prompts `.txt` остаются plain text (ADR-009) |
 **Not adding (and why):**
-- `jinja2` — prompts are plain text, not templates (see ADR-009)
 - `tiktoken` — approximate `words * 1.3` is sufficient at configured `max_total_tokens` scale (default 7000); ±10% error is acceptable for chunk budgeting
 - `faiss` / `sentence-transformers` — rule-based context selection handles ≤100 emails
 - `celery` / `rq` — single-user batch tool, no task queue needed
@@ -932,27 +974,27 @@ digest-core/
   плохой extraction вторым LLM-вызовом для "cleanup".
 - **Revisit when:** Rate limit увеличен до ≥60 RPM или добавлен второй endpoint.
 
-### ADR-009: Prompt template files are plain text (not Jinja2)
+### ADR-009: Extraction prompts are plain text (Jinja2 elsewhere only)
 - **Decision:** Extraction prompts (`extract_actions.v1.txt`, `extract_actions.en.v1.txt`)
-  загружаются через `Path.read_text()`, не через Jinja2 engine. Template variables
-  (`{{ }}`) не используются в extraction prompt.
-- **Rationale:** Extraction prompt — статический текст. Jinja2 adds unnecessary
-  dependency for no benefit. Старые `summarize*.j2` использовали Jinja2, но они — dead
-  code из довендорного multi-step pipeline и были удалены (см. §13.1 TD-007).
-- **Status:** Применено в Phase 0 (TD-010): файлы переименованы из `.j2` в `.txt`,
-  Jinja2 для extraction не используется. Если в будущем понадобится dynamic prompt
-  для extraction — тогда подключить Jinja2 явно.
-- **Note:** `prompts/thread_summarize/v1/default.j2` всё ещё `.j2` — это
-  экспериментальный hierarchical processor, который не вызывается из `run.py` и
-  использует свой собственный загрузчик с Jinja2. Не путать с extraction prompts.
+  загружаются через `Path.read_text()`, **без** Jinja2. Переменные шаблона (`{{ }}`)
+  в extraction prompt не используются.
+- **Rationale:** Текст extraction — статический, проще ревью и воспроизводимость.
+  Отдельно: **Jinja2** подключён в зависимостях для **`LLMGateway.process_digest`**
+  и **hierarchical** путей (`.j2` под `prompts/`) — см. §11. Это не противоречит
+  отказу от шаблонизатора на hot-path `extract_actions`.
+- **Status:** Phase 0 (TD-010): extraction — `.txt`. Dynamic extraction через Jinja2
+  не планируется без отдельного ADR.
+- **Note:** `prompts/thread_summarize/v1/default.j2` — hierarchical processor
+  (не вызывается из `run.py` в MVP). Не путать с extraction prompts.
 
-### ADR-010: Mattermost DM as primary delivery channel (not Web UI)
-- **Decision:** Дайджест доставляется через MM incoming webhook в DM пользователю.
-  Web UI не строим.
+### ADR-010: Mattermost as primary delivery channel (not Web UI)
+- **Decision:** Дайджест доставляется через **Mattermost incoming webhook** (канал,
+  заданный при создании webhook) или, в Phase 1+, Bot API. Продуктовый UX — push
+  в клиент MM (часто личный/«как DM»), а не отдельный Web UI.
 - **Rationale:**
   - Дайджест — push-продукт ("приходит к тебе"), а не pull ("ты идёшь к нему").
     Если надо помнить "зайти на страницу" — через неделю перестанешь.
-  - MM DM — push в клиент, который и так открыт весь день (desktop + mobile).
+  - Mattermost — push в клиент, который и так открыт весь день (desktop + mobile).
   - Web UI для одного пользователя = FastAPI + templates + auth + TLS + процесс.
     MM webhook = один `httpx.post()`.
   - Feedback loop: реакции (👍/👎) на сообщение бесплатны. В web UI надо строить UI.
@@ -980,8 +1022,8 @@ digest-core/
   записаны Stage 7 — данные не теряются.
 - **Rationale:** MM webhook может быть недоступен (maintenance, network).
   Артефакты на диске — source of truth. MM — convenience channel.
-- **Consequence:** Delivery errors → `logger.warning()` + metric `delivery_errors_total`.
-  Pipeline exit code = 0 (success) даже при failed delivery.
+- **Consequence:** Delivery errors → `logger.warning()` + запись в `run_meta` / `delivery_receipt`.
+  Отдельного Prometheus-счётчика доставки в MVP **нет** (см. §6.1). Pipeline exit code = 0 (success) даже при failed delivery.
 
 ---
 
@@ -1398,7 +1440,7 @@ python -m digest_core.cli run --replay-llm /tmp/llm-recording.json
 | **source_ref** | JSON-объект, связывающий пункт дайджеста с оригинальным письмом |
 | **evidence_id** | UUID4 конкретного evidence chunk (уникален в пределах run) |
 | **RPM** | Requests Per Minute — rate limit LLM Gateway (15 RPM для qwen35-397b-a17b) |
-| **Budget Owner** | Стадия pipeline, ответственная за enforcement token budget (Stage 4) |
+| **Budget Owner** | Coarse cap: Stage 4 (`_limit_total_tokens`); selection under same `max_total_tokens`: Stage 5 (`ContextSelector`) — см. §4.2 Stage 5 |
 | **Diagnostic Bundle** | tar.gz архив с redacted логами, метриками и артефактами для дебага вне corp сети |
 | **Replay Mode** | Прогон pipeline из сохранённых EWS/LLM snapshot-ов без реального сетевого доступа |
 | **Corp Network** | Закрытая корпоративная сеть с доступом к Exchange и LLM Gateway |
@@ -1421,8 +1463,8 @@ python -m digest_core.cli run --window rolling_24h
 # Custom output and state directories
 python -m digest_core.cli run --out /tmp/digest --state /tmp/state
 
-# Force rebuild (bypass T-48h idempotency) — TODO: not implemented yet
-# python -m digest_core.cli run --force
+# Force rebuild (bypass T-48h idempotency)
+python -m digest_core.cli run --force
 
 # Run diagnostics
 python -m digest_core.cli diagnose

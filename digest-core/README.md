@@ -1,6 +1,6 @@
 # ActionPulse
 
-Daily corporate email digest with LLM-powered action extraction. Processes Exchange inbox, extracts actionable items via LLM, delivers a structured digest to Mattermost DM.
+Daily corporate email digest with LLM-powered action extraction. Processes Exchange inbox, extracts actionable items via LLM, delivers a structured digest to **Mattermost** (incoming webhook to the configured channel; Bot API optional in later phases).
 
 **Single-tenant CLI tool.** One user, one inbox, daily cron.
 
@@ -79,7 +79,7 @@ See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for Docker and production setup.
 ## Development
 
 ```bash
-make test       # 512 tests, all mocked
+make test       # ~526 tests, all mocked
 make lint       # ruff + black
 make format     # auto-fix
 make smoke      # dry-run smoke test
